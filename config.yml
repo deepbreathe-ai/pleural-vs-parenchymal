@@ -1,9 +1,8 @@
-# Note to dev:
-# The following list is of configuration parameters is simply an example list of common parameters.
-# Be sure to update the readme as you add and remove parameters to this file
-
 PATHS:
-  DATA_TABLE: 'data/exampleData.csv'
+  FRAMES_TABLE: 'B:/Datasets/view_classifier/internal_1/frames.csv'
+  FRAMES_DIR: 'B:/Datasets/view_classifier/internal_1/frames'
+  CLIPS_TABLE: 'B:/Datasets/view_classifier/internal_1/clips_by_patient_hackathon.csv'
+  PARTITIONS_DIR: 'B:/Datasets/view_classifier/internal_1/partitions'
   HEATMAPS: 'img/heatmaps'
   LOGS: 'results/logs/'
   IMAGES: 'results/figures/'
@@ -18,41 +17,38 @@ DATA:
   IMG_DIM: [128, 128]
   VAL_SPLIT: 0.1
   TEST_SPLIT: 0.1
-  CLASSES: ['class_1', 'class_2']   # Classes for binary classification
+  CLASSES: ['parenchymal', 'pleural']   # Classes for binary classification
 
 TRAIN:
-  MODEL_DEF: 'example_model'
+  MODEL_DEF: 'mobilenetv2'
   N_CLASSES: 2
   BATCH_SIZE: 256
-  EPOCHS: 15
-  PATIENCE: 15
-  MIXED_PRECISION: false                         # Necessary for training with Tensor Cores
-  N_FOLDS: 10
+  EPOCHS: 10
+  PATIENCE: 8
+  EXPERIMENT_TYPE: 'single_train'   # One of {'single_train'}
   DATA_AUG:
-    ZOOM_RANGE: 0.1
+    ZOOM_RANGE: 0.2
     HORIZONTAL_FLIP: true
     WIDTH_SHIFT_RANGE: 0.2
     HEIGHT_SHIFT_RANGE: 0.2
     SHEAR_RANGE: 10
-    ROTATION_RANGE: 45
-    BRIGHTNESS_RANGE: [0.7, 1.3]
+    ROTATION_RANGE: 0.125   # Fraction of 2*pi
+    BRIGHTNESS_RANGE: 0.2
+    CONTRAST_RANGE: 0.1
   HPARAM_SEARCH:
     N_EVALS: 10
     HPARAM_OBJECTIVE: 'auc'
 
 HPARAMS:
-  MODEL1:
-    LR: 0.001
-    DROPOUT: 0.35
+  MOBILENETV2:
+    LR: 0.0001
+    DROPOUT: 0.4
     L2_LAMBDA: 0.0001
-    NODES_DENSE0: 32
-    FROZEN_LAYERS: [0, 1, 2, 3, 4, 5, 6]
-  MODEL2:
-    LR: 0.01
-    DROPOUT: 0.5
-    L2_LAMBDA: 0.01
-    NODES_DENSE0: 64
-    FROZEN_LAYERS: []
+    NODES_FC0: 32
+    FROZEN_LAYERS: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]
+
+CLIP_PREDICTION:
+  CLASSIFICATION_THRESHOLD: 0.5
 
 HPARAM_SEARCH:
   MODEL1:
