@@ -1,1 +1,2 @@
-#add all python package requirements here
+tensorflow==2.5
+pyyaml
