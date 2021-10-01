@@ -7,6 +7,8 @@ from tensorflow.keras.metrics import Precision, Recall, AUC
 from tensorflow_addons.metrics import F1Score
 from tensorflow.keras.models import save_model
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, ReduceLROnPlateau
+from tensorflow.keras import backend as k
+from tensorflow.keras.callbacks import Callback
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -14,8 +16,6 @@ from sklearn.model_selection import train_test_split
 from src.models.models import *
 from src.visualization.visualization import *
 from src.data.preprocessor import Preprocessor
-from tensorflow.keras import backend as k
-from tensorflow.keras.callbacks import Callback
 
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
 
@@ -150,12 +150,10 @@ def train_model(model_def, preprocessing_fn, train_df, val_df, test_df, hparams,
     test_set = tf.data.Dataset.from_tensor_slices(([os.path.join(frames_dir, f) for f in test_df['Frame Path'].tolist()], test_df['Class']))
 
     # Set up preprocessing transformations to apply to each item in dataset
-    preprocessor_train = Preprocessor(preprocessing_fn)
-    preprocessor_val = Preprocessor(preprocessing_fn)
-    preprocessor_test = Preprocessor(preprocessing_fn)
-    train_set = preprocessor_train.prepare(train_set, shuffle=True, augment=True)
-    val_set = preprocessor_val.prepare(val_set, shuffle=False, augment=False)
-    test_set = preprocessor_test.prepare(test_set, shuffle=False, augment=False)
+    preprocessor = Preprocessor(preprocessing_fn)
+    train_set = preprocessor.prepare(train_set, shuffle=True, augment=True)
+    val_set = preprocessor.prepare(val_set, shuffle=False, augment=False)
+    test_set = preprocessor.prepare(test_set, shuffle=False, augment=False)
 
     # Get class weights based on prevalences
     histogram = np.bincount(train_df['Class'].to_numpy().astype(int))  # Get class distribution
