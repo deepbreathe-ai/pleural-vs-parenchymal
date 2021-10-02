@@ -1,8 +1,8 @@
 PATHS:
-  FRAMES_TABLE: 'B:/Datasets/view_classifier/internal_1/frames.csv'
-  FRAMES_DIR: 'B:/Datasets/view_classifier/internal_1/frames'
-  CLIPS_TABLE: 'B:/Datasets/view_classifier/internal_1/clips_by_patient_hackathon.csv'
-  PARTITIONS_DIR: 'B:/Datasets/view_classifier/internal_1/partitions'
+  FRAMES_TABLE: 'B:/Datasets/view_classifier/internal_2/frames.csv'
+  FRAMES_DIR: 'B:/Datasets/view_classifier/internal_2/frames'
+  CLIPS_TABLE: 'B:/Datasets/view_classifier/internal_2/clips_by_patient_hackathon.csv'
+  PARTITIONS_DIR: 'B:/Datasets/view_classifier/internal_2/partitions'
   HEATMAPS: 'img/heatmaps'
   LOGS: 'results/logs/'
   IMAGES: 'results/figures/'

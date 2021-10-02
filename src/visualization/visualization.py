@@ -36,12 +36,12 @@ def plot_roc(labels, predictions, class_name_list, dir_path=None, title=None):
     :param dir_path: Directory in which to save image
     '''
     plt.clf()
-    for class_id in range(len(class_name_list)):
-        class_name = class_name_list[class_id]
-        single_class_preds = predictions[:, class_id]    # Only care about one class
-        single_class_labels = (np.array(labels) == class_id) * 1.0
-        fp, tp, _ = roc_curve(single_class_labels, single_class_preds)  # Get values for true positive and true negative
-        plt.plot(100*fp, 100*tp, label=class_name, linewidth=2)   # Plot the ROC curve
+    # for class_id in range(len(class_name_list)):
+    #     class_name = class_name_list[class_id]
+    #     single_class_preds = predictions[:, class_id]    # Only care about one class
+    #     single_class_labels = (np.array(labels) == class_id) * 1.0
+    fp, tp, _ = roc_curve(labels, predictions)  # Get values for true positive and true negative
+    plt.plot(100*fp, 100*tp, linewidth=2)   # Plot the ROC curve
 
     if title is None:
         plt.title('ROC curves for test set')

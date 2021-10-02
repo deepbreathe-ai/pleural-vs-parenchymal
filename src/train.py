@@ -161,11 +161,9 @@ def train_model(model_def, preprocessing_fn, train_df, val_df, test_df, hparams,
 
     # Define performance metrics
     classes = cfg['DATA']['CLASSES']
-    n_classes = len(classes)
-    threshold = 1.0 / n_classes # Binary classification threshold for a class
-    metrics = ['accuracy', AUC(name='auc'), F1Score(name='f1score', num_classes=n_classes)]
-    metrics += [Precision(name='precision_' + classes[i], thresholds=threshold, class_id=i) for i in range(n_classes)]
-    metrics += [Recall(name='recall_' + classes[i], thresholds=threshold, class_id=i) for i in range(n_classes)]
+    # F1Score(name='f1score', num_classes=2)
+    metrics = ['accuracy', AUC(name='auc'), Precision(name='precision', thresholds=0.5),
+               Recall(name='recall', thresholds=0.5)]
 
     print('Training distribution: ',
           ['Class ' + classes[i] + ': ' + str(histogram[i]) + '. '
@@ -173,7 +171,7 @@ def train_model(model_def, preprocessing_fn, train_df, val_df, test_df, hparams,
     input_shape = cfg['DATA']['IMG_DIM'] + [3]
 
     # Compute output bias
-    output_bias = np.log([histogram[i] / (np.sum(histogram) - histogram[i]) for i in range(histogram.shape[0])])
+    output_bias = np.log(histogram[1] / histogram[0])
 
     # Define the model
     model = model_def(hparams, input_shape, metrics, cfg['TRAIN']['N_CLASSES'], output_bias=output_bias)
