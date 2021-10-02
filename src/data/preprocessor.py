@@ -71,7 +71,7 @@ class Preprocessor:
         image_str = tf.io.read_file(filename)
         image_decoded = tf.image.decode_jpeg(image_str, channels=3)
         image = tf.cast(image_decoded, tf.float32)
-        return tf.image.resize(image, cfg['DATA']['IMG_DIM']), tf.one_hot(label, self.n_classes)
+        return tf.image.resize(image, cfg['DATA']['IMG_DIM']), label
 
 
 

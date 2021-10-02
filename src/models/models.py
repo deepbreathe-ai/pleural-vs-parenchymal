@@ -59,11 +59,11 @@ def mobilenetv2(model_config, input_shape, metrics, n_classes, output_bias=None)
     X = GlobalAveragePooling2D()(X)
     X = Dropout(dropout)(X)
     X = Dense(fc0_nodes, activation='relu', activity_regularizer=l2(weight_decay), name='fc0')(X)
-    X = Dense(n_classes, bias_initializer=output_bias, name='logits')(X)
-    Y = Activation('softmax', dtype='float32', name='output')(X)
+    X = Dense(1, bias_initializer=output_bias, name='logits')(X)
+    Y = Activation('sigmoid', dtype='float32', name='output')(X)
 
     # Set model loss function, optimizer, metrics.
     model = Model(inputs=X_input, outputs=Y)
     model.summary()
-    model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=metrics)
+    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=metrics)
     return model
