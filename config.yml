@@ -1,13 +1,13 @@
 PATHS:
-  FRAMES_TABLE: 'B:/Datasets/view_classifier/internal_2/frames.csv'
-  FRAMES_DIR: 'B:/Datasets/view_classifier/internal_2/frames'
-  CLIPS_TABLE: 'B:/Datasets/view_classifier/internal_2/clips_by_patient_hackathon.csv'
-  PARTITIONS_DIR: 'B:/Datasets/view_classifier/internal_2/partitions'
+  FRAMES_TABLE: 'C:/Users/Bennet/DeepBreathe/data/view_classifier_validation_data/view_classifier_validation_data/frames.csv'
+  FRAMES_DIR: 'C:/Users/Bennet/DeepBreathe/data/view_classifier_validation_data/view_classifier_validation_data/frames'
+  CLIPS_TABLE: 'C:/Users/Bennet/DeepBreathe/data/view_classifier_validation_data/view_classifier_validation_data/clips_table.csv'
+  PARTITIONS_DIR: 'C:/Users/Bennet/DeepBreathe/data/view_classifier_validation_data/view_classifier_validation_data/partitions'
   HEATMAPS: 'img/heatmaps'
   LOGS: 'results/logs/'
   IMAGES: 'results/figures/'
   MODEL_WEIGHTS: 'results/models/'
-  MODEL_TO_LOAD: 'results/models/example_model.h5'
+  MODEL_TO_LOAD: 'results/models/model20211122-015957-cutoffvgg16-default-aug.h5'
   CLASS_NAME_MAP: 'data/serializations/class_name_map.pkl'
   BATCH_PREDS: 'results/predictions/'
   METRICS: './results/metrics/'
@@ -20,9 +20,9 @@ DATA:
   CLASSES: ['parenchymal', 'pleural']   # Classes for binary classification
 
 TRAIN:
-  MODEL_DEF: 'mobilenetv2'
+  MODEL_DEF: 'cutoffvgg16'
   N_CLASSES: 2
-  BATCH_SIZE: 256
+  BATCH_SIZE: 128
   EPOCHS: 10
   PATIENCE: 8
   EXPERIMENT_TYPE: 'single_train'   # One of {'single_train'}
@@ -45,7 +45,20 @@ HPARAMS:
     DROPOUT: 0.4
     L2_LAMBDA: 0.0001
     NODES_FC0: 32
-    FROZEN_LAYERS: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]
+    FROZEN_LAYERS: [0,1,2,3,4,5,6,7,8,9,10]
+  INCEPTIONV3:
+    LR: 0.0001
+    DROPOUT: 0.4
+    L2_LAMBDA: 0.0001
+    NODES_FC0: 32
+    FROZEN_LAYERS: [ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+  CUTOFFVGG16:
+    LR_EXTRACT: 0.0003
+    LR_FINETUNE: 0.0000093
+    DROPOUT: 0.45
+    CUTOFF_LAYER: 10
+    FINETUNE_LAYER: 7
+    EXTRACT_EPOCHS: 5
 
 CLIP_PREDICTION:
   CLASSIFICATION_THRESHOLD: 0.5

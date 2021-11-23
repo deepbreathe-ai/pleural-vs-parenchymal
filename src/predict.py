@@ -33,7 +33,7 @@ def predict_set(model, preprocessing_fn, predict_df, threshold=0.5):
 
     # Obtain prediction probabilities
     p = model.predict(preprocessed_set)
-    test_predictions = (p[:, 1] >= threshold).astype(int)
+    test_predictions = (p[:, 0] >= threshold).astype(int)
 
     # Get prediction classes in original labelling system
     pred_classes = [cfg['DATA']['CLASSES'][v] for v in list(test_predictions)]
@@ -116,7 +116,7 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
         all_pred_probs[i] = clip_pred_prob
 
         # Record predicted class
-        pred_class = (clip_pred_prob[1] >= class_thresh).astype(int)
+        pred_class = (clip_pred_prob[0] >= class_thresh).astype(int)
         clip_pred_classes.append(pred_class)
 
     if calculate_metrics:
@@ -197,4 +197,4 @@ if __name__ == '__main__':
     clips_path = cfg['PATHS']['CLIPS_TABLE']
     compute_clip_predictions(cfg, frames_path, clips_path, class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'],
                              calculate_metrics=True)
-    compute_frame_predictions(cfg, frames_path, class_thresh=0.9, calculate_metrics=True)
+    #compute_frame_predictions(cfg, frames_path, class_thresh=0.9, calculate_metrics=True)

@@ -70,7 +70,8 @@ def plot_confusion_matrix(labels, predictions, class_name_list, dir_path=None, t
     :param dir_path: Directory in which to save image
     '''
     plt.clf()
-    predictions = list(np.argmax(predictions, axis=1))
+    #predictions = list(np.argmax(predictions, axis=1))
+    predictions = np.round(predictions)
     ax = plt.subplot()
     cm = confusion_matrix(list(labels), predictions)  # Determine confusion matrix
     im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)  # Plot confusion matrix
@@ -118,10 +119,10 @@ def visualize_heatmap(orig_img, heatmap, img_filename, label, probs, class_names
     ax[1].imshow(heatmap)
 
     # Display some information about the example
-    pred_class = np.argmax(probs)
+    pred_class = np.round(probs)
     fig.text(0.02, 0.90, "Prediction probabilities for: " + str(class_names) + ': ' +
              str(['{:.2f}'.format(probs[i]) for i in range(len(probs))]), fontsize=10)
-    fig.text(0.02, 0.92, "Predicted Class: " + str(pred_class) + ' (' + class_names[pred_class] + ')', fontsize=10)
+    fig.text(0.02, 0.92, "Predicted Class: " + str(int(pred_class[0])) + ' (' + class_names[int(pred_class[0])] + ')', fontsize=10)
     if label is not None:
         fig.text(0.02, 0.94, "Ground Truth Class: " + str(label) + ' (' + class_names[label] + ')', fontsize=10)
     fig.suptitle("Grad-CAM heatmap for image " + img_filename, fontsize=8, fontweight='bold')

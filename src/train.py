@@ -148,7 +148,6 @@ def train_model(model_def, preprocessing_fn, train_df, val_df, test_df, hparams,
     train_set = tf.data.Dataset.from_tensor_slices(([os.path.join(frames_dir, f) for f in train_df['Frame Path'].tolist()], train_df['Class']))
     val_set = tf.data.Dataset.from_tensor_slices(([os.path.join(frames_dir, f) for f in val_df['Frame Path'].tolist()], val_df['Class']))
     test_set = tf.data.Dataset.from_tensor_slices(([os.path.join(frames_dir, f) for f in test_df['Frame Path'].tolist()], test_df['Class']))
-
     # Set up preprocessing transformations to apply to each item in dataset
     preprocessor = Preprocessor(preprocessing_fn)
     train_set = preprocessor.prepare(train_set, shuffle=True, augment=True)
@@ -188,8 +187,11 @@ def train_model(model_def, preprocessing_fn, train_df, val_df, test_df, hparams,
 
     # Save the model's weights
     if save_weights:
-        model_path = cfg['PATHS']['MODEL_WEIGHTS'] + 'model' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.h5'
-        save_model(model, model_path)  # Save the model's weights
+        model_path = cfg['PATHS']['MODEL_WEIGHTS'] + 'model' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+ '-' + cfg['TRAIN']['MODEL_DEF'] + '.h5'
+        if cfg['TRAIN']['MODEL_DEF'] == 'cutoffvgg16':
+            save_model(model.model, model_path)
+        else:
+            save_model(model, model_path)  # Save the model's weights
 
     # Run the model on the test set and print the resulting performance metrics.
     test_results = model.evaluate(test_set, verbose=1)
@@ -214,7 +216,7 @@ def train_single(hparams=None, save_weights=False, write_logs=False):
     train_df, val_df, test_df = partition_dataset(cfg['DATA']['VAL_SPLIT'], cfg['DATA']['TEST_SPLIT'])
     model_def, preprocessing_fn = get_model(cfg['TRAIN']['MODEL_DEF'])
     if write_logs:
-        log_dir = os.path.join(cfg['PATHS']['LOGS'], datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+        log_dir = os.path.join(cfg['PATHS']['LOGS'], datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '-' + cfg['TRAIN']['MODEL_DEF'])
     else:
         log_dir = None
 

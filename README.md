@@ -1,5 +1,4 @@
-[comment]: <> (TODO: Add project name.)
-# PROJECT NAME
+# Pleural vs Parenchymal Lung Ultrasound Classifier
 ![Deep Breathe Logo](img/readme/deep-breathe-logo.jpg "Deep Breath AI")   
 
 [comment]: <> (TODO: Add project description.)
