@@ -18,6 +18,7 @@ from src.visualization.visualization import *
 from src.data.preprocessor import Preprocessor
 
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+CUR_DATETIME = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
 # for device in tf.config.experimental.list_physical_devices("GPU"):
 #     tf.config.experimental.set_memory_growth(device, True)
@@ -74,18 +75,33 @@ def partition_dataset(val_split, test_split, save_dfs=True):
     trainval_pts, test_pts = train_test_split(all_pts, test_size=test_split)
     train_pts, val_pts = train_test_split(trainval_pts, test_size=relative_val_split)
 
-    train_df = frame_df[frame_df['Patient'].isin(train_pts)]
-    val_df = frame_df[frame_df['Patient'].isin(val_pts)]
-    test_df = frame_df[frame_df['Patient'].isin(test_pts)]
-    print('TRAIN/VAL/TEST SPLIT: [{}, {}, {}] frames, [{}, {}, {}] patients'
-          .format(train_df.shape[0], val_df.shape[0], test_df.shape[0], train_pts.shape[0], val_pts.shape[0],
-                  test_pts.shape[0]))
+    train_df_frames = frame_df[frame_df['Patient'].isin(train_pts)]
+    val_df_frames = frame_df[frame_df['Patient'].isin(val_pts)]
+    test_df_frames = frame_df[frame_df['Patient'].isin(test_pts)]
+
+    train_df_frames['Clip'] = train_df_frames['Frame Path'].str.rsplit('_', 1, expand=True)[0]
+    val_df_frames['Clip'] = val_df_frames['Frame Path'].str.rsplit('_', 1, expand=True)[0]
+    test_df_frames['Clip'] = test_df_frames['Patient'].str.rsplit('_', 1, expand=True)[0]
+
+    train_df_clips = train_df_frames.groupby('Clip').first().reset_index().drop('Frame Path', axis=1).rename(columns={'Clip': 'filename'})
+    val_df_clips = val_df_frames.groupby('Clip').first().reset_index().drop('Frame Path', axis=1).rename(columns={'Clip': 'filename'})
+    test_df_clips = test_df_frames.groupby('Clip').first().reset_index().drop('Frame Path', axis=1).rename(columns={'Clip': 'filename'})
+
+    print('TRAIN/VAL/TEST SPLIT: [{}, {}, {}] frames, [{}, {}, {}] clips, [{}, {}, {}] patients'
+          .format(train_df_frames.shape[0], val_df_frames.shape[0], test_df_frames.shape[0],
+                  train_df_clips.shape[0], val_df_clips.shape[0], test_df_clips.shape[0],
+                  train_pts.shape[0], val_pts.shape[0], test_pts.shape[0]))
 
     if save_dfs:
-        train_df.to_csv(os.path.join(cfg['PATHS']['PARTITIONS_DIR'], 'train_set.csv'))
-        val_df.to_csv(os.path.join(cfg['PATHS']['PARTITIONS_DIR'], 'val_set.csv'))
-        test_df.to_csv(os.path.join(cfg['PATHS']['PARTITIONS_DIR'], 'test_set.csv'))
-    return train_df, val_df, test_df
+        partition_dir = os.path.join(cfg['PATHS']['PARTITIONS_DIR'], CUR_DATETIME)
+        os.mkdir(partition_dir)
+        train_df_frames.to_csv(os.path.join(partition_dir, 'train_set_frames.csv'), index=False)
+        val_df_frames.to_csv(os.path.join(partition_dir, 'val_set_frames.csv'), index=False)
+        test_df_frames.to_csv(os.path.join(partition_dir, 'test_set_frames.csv'), index=False)
+        train_df_clips.to_csv(os.path.join(partition_dir, 'train_set_clips.csv'), index=False)
+        val_df_clips.to_csv(os.path.join(partition_dir, 'val_set_clips.csv'), index=False)
+        test_df_clips.to_csv(os.path.join(partition_dir, 'test_set_clips.csv'), index=False)
+    return train_df_frames, val_df_frames, test_df_frames
 
 
 def log_test_results(model, test_set, test_df, test_metrics, log_dir):
@@ -187,7 +203,7 @@ def train_model(model_def, preprocessing_fn, train_df, val_df, test_df, hparams,
 
     # Save the model's weights
     if save_weights:
-        model_path = cfg['PATHS']['MODEL_WEIGHTS'] + 'model' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")+ '-' + cfg['TRAIN']['MODEL_DEF'] + '.h5'
+        model_path = cfg['PATHS']['MODEL_WEIGHTS'] + 'model' + CUR_DATETIME + '-' + cfg['TRAIN']['MODEL_DEF'] + '.h5'
         if cfg['TRAIN']['MODEL_DEF'] == 'cutoffvgg16':
             save_model(model.model, model_path)
         else:
@@ -216,7 +232,7 @@ def train_single(hparams=None, save_weights=False, write_logs=False):
     train_df, val_df, test_df = partition_dataset(cfg['DATA']['VAL_SPLIT'], cfg['DATA']['TEST_SPLIT'])
     model_def, preprocessing_fn = get_model(cfg['TRAIN']['MODEL_DEF'])
     if write_logs:
-        log_dir = os.path.join(cfg['PATHS']['LOGS'], datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '-' + cfg['TRAIN']['MODEL_DEF'])
+        log_dir = os.path.join(cfg['PATHS']['LOGS'], CUR_DATETIME + '-' + cfg['TRAIN']['MODEL_DEF'])
     else:
         log_dir = None
 
