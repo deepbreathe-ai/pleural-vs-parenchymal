@@ -38,12 +38,11 @@ def predict_set(model, preprocessing_fn, predict_df, threshold=0.5):
     # Get prediction classes in original labelling system
     pred_classes = [cfg['DATA']['CLASSES'][v] for v in list(test_predictions)]
     test_predictions = [cfg['DATA']['CLASSES'].index(c) for c in pred_classes]
-    return test_predictions, p
+    return test_predictions, np.squeeze(p, axis=1)
 
-def compute_metrics(cfg, labels, preds, probs=None):
+def compute_metrics(labels, preds, probs=None):
     '''
     Given labels and predictions, compute some common performance metrics
-    :param cfg: project config
     :param labels: List of labels
     :param preds: List of predicted classes
     :param probs: Array of predicted classwise probabilities
@@ -51,32 +50,24 @@ def compute_metrics(cfg, labels, preds, probs=None):
     '''
 
     metrics = {}
-    class_names = cfg['DATA']['CLASSES']
 
-    precision = precision_score(labels, preds, average='binary')
-    recalls = recall_score(labels, preds, average=None)
-    f1 = f1_score(labels, preds, average='binary')
+    precision = precision_score(labels, preds)
+    recalls = recall_score(labels, preds)
+    f1 = f1_score(labels, preds)
 
     metrics['confusion_matrix'] = confusion_matrix(labels, preds).tolist()
     metrics['precision'] = precision
-    metrics['recall'] = recalls[1]          # Recall of the positive class (i.e. sensitivity)
-    metrics['specificity'] = recalls[0]     # Specificity is recall of the negative class
+    metrics['recall'] = recalls
     metrics['f1'] = f1
     metrics['accuracy'] = accuracy_score(labels, preds)
 
     if probs is not None:
-        metrics['macro_mean_auc'] = roc_auc_score(labels, probs[:,1], average='macro', multi_class='ovr')
-        metrics['weighted_mean_auc'] = roc_auc_score(labels, probs[:,1], average='weighted', multi_class='ovr')
-
-        # Calculate classwise AUCs
-        for class_name in class_names:
-            classwise_labels = (labels == class_names.index(class_name)).astype(int)
-            class_probs = probs[:,class_names.index(class_name)]
-            metrics[class_name + '_auc'] = roc_auc_score(classwise_labels, class_probs)
+        metrics['auc'] = roc_auc_score(labels, probs)
     return metrics
 
 
-def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thresh=0.5, calculate_metrics=True):
+def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thresh=0.5, clip_pred_method='average',
+                             calculate_metrics=True):
     '''
     For a particular dataset, use predictions for each filename to create predictions for whole clips and save the
     resulting metrics.
@@ -90,15 +81,14 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
     model_type = cfg['TRAIN']['MODEL_DEF']
     _, preprocessing_fn = get_model(model_type)
     model = load_model(cfg['PATHS']['MODEL_TO_LOAD'], compile=False)
-    set_name = frames_table_path.split('/')[-1].split('.')[0] + '_clips'
 
     frames_df = pd.read_csv(frames_table_path)
     clips_df = pd.read_csv(clips_table_path)
 
     clip_names = clips_df['filename']
     clip_pred_classes = []
-    all_pred_probs = np.zeros((clips_df.shape[0], len(cfg['DATA']['CLASSES'])))
-    print("Found {} clips. Determining clip predictions.".format(clips_df.shape[0]))
+    all_pred_probs = np.zeros((clips_df.shape[0])) if clip_pred_method == 'average' else None
+    print("Found {} clips. Determining clip predictions with the {} method.".format(clips_df.shape[0], clip_pred_method))
     for i in range(len(clip_names)):
 
         # Get records from all files from this clip
@@ -111,28 +101,38 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
         # Make predictions for each image
         pred_classes, pred_probs = predict_set(model, preprocessing_fn, clip_files_df, threshold=class_thresh)
 
-        # Compute average prediction for entire clip
-        clip_pred_prob = np.mean(pred_probs, axis=0)
-        all_pred_probs[i] = clip_pred_prob
-
-        # Record predicted class
-        pred_class = (clip_pred_prob[0] >= class_thresh).astype(int)
-        clip_pred_classes.append(pred_class)
+        # Determine a clip-wise prediction
+        if clip_pred_method == 'majority_vote':
+            clip_pred_class = majority_vote(pred_probs)
+        else:
+            clip_pred_class, clip_pred_prob = avg_clip_prediction(pred_probs, class_thresh)
+            all_pred_probs[i] = clip_pred_prob
+        clip_pred_classes.append(clip_pred_class)         # Record predicted class for the clips
 
     if calculate_metrics:
-        clip_labels = clips_df['class']
-        metrics = compute_metrics(cfg, np.array(clip_labels), np.array(clip_pred_classes), all_pred_probs)
-        json.dump(metrics, open(cfg['PATHS']['METRICS'] + set_name +
-                                 datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json', 'w'))
+        clip_labels = clips_df['Class']
+        metrics = compute_metrics(np.array(clip_labels), np.array(clip_pred_classes), all_pred_probs)
+        json.dump(metrics, open(cfg['PATHS']['METRICS'] + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json', 'w'))
 
     # Save predictions
-    pred_probs_df = pd.DataFrame(all_pred_probs, columns=cfg['DATA']['CLASSES'])
-    pred_probs_df.insert(0, 'filename', clips_df['filename'])
-    pred_probs_df.insert(1, 'class', clips_df['class'])
-    pred_probs_df.to_csv(cfg['PATHS']['BATCH_PREDS'] + set_name + '_predictions' +
-                             datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.csv')
-    return pred_probs_df
+    pred_df = pd.DataFrame(clip_pred_classes)
+    if all_pred_probs is not None:
+        pred_df['Pred probs'] = all_pred_probs
+    pred_df.insert(0, 'filename', clips_df['filename'])
+    pred_df.insert(1, 'Class', clips_df['Class'])
+    pred_df.to_csv(cfg['PATHS']['BATCH_PREDS'] + '_predictions' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.csv')
+    return pred_df
 
+
+def avg_clip_prediction(pred_probs, class_thresh):
+    clip_pred_prob = np.mean(pred_probs, axis=0)
+    clip_pred_class = (clip_pred_prob >= class_thresh).astype(int)
+    return clip_pred_class, clip_pred_prob
+
+
+def majority_vote(pred_probs):
+    pred_classes = np.round(pred_probs).astype(np.int32)
+    return (np.sum(pred_classes) >= pred_classes.shape[0] / 2.).astype(np.int32)
 
 def compute_frame_predictions(cfg, dataset_files_path, class_thresh=0.5, calculate_metrics=True):
     '''
@@ -155,7 +155,7 @@ def compute_frame_predictions(cfg, dataset_files_path, class_thresh=0.5, calcula
     # Compute and save metrics
     if calculate_metrics:
         frame_labels = files_df['Class']  # Get ground truth
-        metrics = compute_metrics(cfg, np.array(frame_labels), np.array(pred_classes), pred_probs)
+        metrics = compute_metrics(np.array(frame_labels), np.array(pred_classes), pred_probs)
         json.dump(metrics, open(cfg['PATHS']['METRICS'] + set_name +
                                 datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json', 'w'))
 
@@ -194,7 +194,7 @@ def clock_avg_runtime(n_gpu_warmup_runs, n_experiment_runs):
 if __name__ == '__main__':
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
     frames_path = cfg['PATHS']['FRAMES_TABLE']
-    clips_path = cfg['PATHS']['CLIPS_TABLE']
-    compute_clip_predictions(cfg, frames_path, clips_path, class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'],
-                             calculate_metrics=True)
+    clips_path = cfg['PATHS']['TEST_CLIPS_TABLE']
+    compute_clip_predictions(cfg, frames_path, clips_path, clip_pred_method='average',
+                             class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'], calculate_metrics=True)
     #compute_frame_predictions(cfg, frames_path, class_thresh=0.9, calculate_metrics=True)

@@ -94,7 +94,7 @@ def partition_dataset(val_split, test_split, save_dfs=True):
 
     if save_dfs:
         partition_dir = os.path.join(cfg['PATHS']['PARTITIONS_DIR'], CUR_DATETIME)
-        os.mkdir(partition_dir)
+        os.makedirs(partition_dir)
         train_df_frames.to_csv(os.path.join(partition_dir, 'train_set_frames.csv'), index=False)
         val_df_frames.to_csv(os.path.join(partition_dir, 'val_set_frames.csv'), index=False)
         test_df_frames.to_csv(os.path.join(partition_dir, 'test_set_frames.csv'), index=False)

@@ -1,14 +1,15 @@
 PATHS:
-  FRAMES_TABLE: 'C:/Users/Bennet/DeepBreathe/data/view_classifier_validation_data/view_classifier_validation_data/frames.csv'
-  FRAMES_DIR: 'C:/Users/Bennet/DeepBreathe/data/view_classifier_validation_data/view_classifier_validation_data/frames'
-  CLIPS_TABLE: 'C:/Users/Bennet/DeepBreathe/data/view_classifier_validation_data/view_classifier_validation_data/clips_table.csv'
-  PARTITIONS_DIR: 'C:/Users/Bennet/DeepBreathe/data/view_classifier_validation_data/view_classifier_validation_data/partitions'
+  FRAMES_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\frames.csv'
+  FRAMES_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3\\frames'
+  CLIPS_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\clips_table.csv'
+  PARTITIONS_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions'
+  TEST_CLIPS_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions\\20211123-154033\\test_set_clips.csv'
+  MASKED_CLIPS_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3'
   HEATMAPS: 'img/heatmaps'
   LOGS: 'results/logs/'
   IMAGES: 'results/figures/'
   MODEL_WEIGHTS: 'results/models/'
-  MODEL_TO_LOAD: 'results/models/model20211122-015957-cutoffvgg16-default-aug.h5'
-  CLASS_NAME_MAP: 'data/serializations/class_name_map.pkl'
+  MODEL_TO_LOAD: 'results/models/model20211123-154033-cutoffvgg16.h5'
   BATCH_PREDS: 'results/predictions/'
   METRICS: './results/metrics/'
   EXPERIMENTS: './results/experiments/'
@@ -22,7 +23,7 @@ DATA:
 TRAIN:
   MODEL_DEF: 'cutoffvgg16'
   N_CLASSES: 2
-  BATCH_SIZE: 128
+  BATCH_SIZE: 256
   EPOCHS: 10
   PATIENCE: 8
   EXPERIMENT_TYPE: 'single_train'   # One of {'single_train'}
