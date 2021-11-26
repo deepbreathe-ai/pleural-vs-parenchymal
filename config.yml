@@ -1,14 +1,16 @@
 PATHS:
-  FRAMES_TABLE: 'B:/Datasets/view_classifier/internal_2/frames.csv'
-  FRAMES_DIR: 'B:/Datasets/view_classifier/internal_2/frames'
-  CLIPS_TABLE: 'B:/Datasets/view_classifier/internal_2/clips_by_patient_hackathon.csv'
-  PARTITIONS_DIR: 'B:/Datasets/view_classifier/internal_2/partitions'
+  FRAMES_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\frames.csv'
+  FRAMES_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3\\frames'
+  CLIPS_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\clips_table.csv'
+  PARTITIONS_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions'
+  TEST_CLIPS_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions\\20211125-224334\\test_set_clips.csv'
+  TEST_FRAMES_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions\\20211125-224334\\test_set_frames.csv'
+  MASKED_CLIPS_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3'
   HEATMAPS: 'img/heatmaps'
   LOGS: 'results/logs/'
   IMAGES: 'results/figures/'
   MODEL_WEIGHTS: 'results/models/'
-  MODEL_TO_LOAD: 'results/models/example_model.h5'
-  CLASS_NAME_MAP: 'data/serializations/class_name_map.pkl'
+  MODEL_TO_LOAD: 'results/models/model20211123-154033-cutoffvgg16.h5'
   BATCH_PREDS: 'results/predictions/'
   METRICS: './results/metrics/'
   EXPERIMENTS: './results/experiments/'
@@ -20,7 +22,7 @@ DATA:
   CLASSES: ['parenchymal', 'pleural']   # Classes for binary classification
 
 TRAIN:
-  MODEL_DEF: 'mobilenetv2'
+  MODEL_DEF: 'cutoffvgg16'
   N_CLASSES: 2
   BATCH_SIZE: 256
   EPOCHS: 10
@@ -45,10 +47,26 @@ HPARAMS:
     DROPOUT: 0.4
     L2_LAMBDA: 0.0001
     NODES_FC0: 32
-    FROZEN_LAYERS: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]
+    FROZEN_LAYERS: [0,1,2,3,4,5,6,7,8,9,10]
+  INCEPTIONV3:
+    LR: 0.0001
+    DROPOUT: 0.4
+    L2_LAMBDA: 0.0001
+    NODES_FC0: 32
+    FROZEN_LAYERS: [ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+  CUTOFFVGG16:
+    LR_EXTRACT: 0.0003
+    LR_FINETUNE: 0.0000093
+    DROPOUT: 0.45
+    CUTOFF_LAYER: 10
+    FINETUNE_LAYER: 7
+    EXTRACT_EPOCHS: 5
 
 CLIP_PREDICTION:
   CLASSIFICATION_THRESHOLD: 0.5
+  CLIP_PREDICTION_METHOD: 'contiguity_threshold'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshsold'}
+  WINDOW_SIZE: 20
+  CONTIGUITY_THRESHOLD: 20
 
 HPARAM_SEARCH:
   MODEL1:

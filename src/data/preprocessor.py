@@ -23,8 +23,8 @@ class Preprocessor:
             RandomBrightness(factor=cfg['TRAIN']['DATA_AUG']['BRIGHTNESS_RANGE']),
             RandomContrast(cfg['TRAIN']['DATA_AUG']['CONTRAST_RANGE']),
             RandomFlip("horizontal"),
-            RandomRotation(cfg['TRAIN']['DATA_AUG']['ROTATION_RANGE'], fill_mode='nearest'),
-            RandomZoom(cfg['TRAIN']['DATA_AUG']['ZOOM_RANGE'], fill_mode='nearest')
+            RandomRotation(cfg['TRAIN']['DATA_AUG']['ROTATION_RANGE'], fill_mode='constant'),
+            RandomZoom(cfg['TRAIN']['DATA_AUG']['ZOOM_RANGE'], fill_mode='constant')
         ])
         self.input_scaler = scale_fn
 
@@ -37,12 +37,12 @@ class Preprocessor:
         @return: The prepared TF dataset
         '''
 
+        # Shuffle the dataset
+        if shuffle:
+            ds = ds.shuffle(len(ds))
+
         # Load and resize images
         ds = ds.map(self._parse_fn, num_parallel_calls=self.autotune)
-
-        # Shuffle items in the dataset
-        if shuffle:
-            ds = ds.shuffle(1000)
 
         # Batch the dataset
         ds = ds.batch(self.batch_size)
