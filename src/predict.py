@@ -98,12 +98,18 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
         if clip_files_df.shape[0] == 0:
             raise Exception("Clip {} had 0 frames. Aborting.".format(clip_name))
 
-        # Make predictions for each image
+        # Make predictions for each frame
         pred_classes, pred_probs = predict_set(model, preprocessing_fn, clip_files_df, threshold=class_thresh)
 
         # Determine a clip-wise prediction
         if clip_pred_method == 'majority_vote':
-            clip_pred_class = majority_vote(pred_probs)
+            clip_pred_class = majority_vote(pred_probs, class_thresh)
+        elif clip_pred_method == 'contiguity_threshold':
+            contiguity_threshold = cfg['CLIP_PREDICTION']['CONTIGUITY_THRESHOLD']
+            clip_pred_class = max_contiguous_pleural_preds(pred_probs, class_thresh, contiguity_threshold)
+        elif clip_pred_method == 'max_sliding_window':
+            window_size = cfg['CLIP_PREDICTION']['WINDOW_SIZE']
+            clip_pred_class = max_sliding_window(pred_probs, window_size)
         else:
             clip_pred_class, clip_pred_prob = avg_clip_prediction(pred_probs, class_thresh)
             all_pred_probs[i] = clip_pred_prob
@@ -112,7 +118,8 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
     if calculate_metrics:
         clip_labels = clips_df['Class']
         metrics = compute_metrics(np.array(clip_labels), np.array(clip_pred_classes), all_pred_probs)
-        json.dump(metrics, open(cfg['PATHS']['METRICS'] + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json', 'w'))
+        json.dump(metrics, open(os.path.join(cfg['PATHS']['METRICS'], 'clips_' +
+                                             datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json'), 'w'))
 
     # Save predictions
     pred_df = pd.DataFrame(clip_pred_classes)
@@ -120,19 +127,70 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
         pred_df['Pred probs'] = all_pred_probs
     pred_df.insert(0, 'filename', clips_df['filename'])
     pred_df.insert(1, 'Class', clips_df['Class'])
-    pred_df.to_csv(cfg['PATHS']['BATCH_PREDS'] + '_predictions' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.csv')
+    pred_df.to_csv(os.path.join(cfg['PATHS']['BATCH_PREDS'] + 'clip_predictions' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.csv'))
     return pred_df
 
 
 def avg_clip_prediction(pred_probs, class_thresh):
+    '''
+    Returns the average probability among a list of frame prediction probabilities and the corresponding predicted class
+    :param pred_probs (np.array) [n_frames]: Framewise prediction probabilities
+    :param class_thresh (float): Classification threshold (in [0, 1])
+    :return (int, float): Clip class prediction, clip probability prediction
+    '''
     clip_pred_prob = np.mean(pred_probs, axis=0)
     clip_pred_class = (clip_pred_prob >= class_thresh).astype(int)
     return clip_pred_class, clip_pred_prob
 
 
-def majority_vote(pred_probs):
-    pred_classes = np.round(pred_probs).astype(np.int32)
+def majority_vote(pred_probs, class_thresh):
+    '''
+    Determines the predicted class for each framewise prediction and determines a clip prediction via majority voting.
+    :param pred_probs (np.array) [n_frames]: Framewise prediction probabilities
+    :param class_thresh (float): Classification threshold (in [0, 1])
+    :return (int): Clip class prediction
+    '''
+    pred_classes = (pred_probs >= class_thresh).astype(int)
     return (np.sum(pred_classes) >= pred_classes.shape[0] / 2.).astype(np.int32)
+
+
+def max_sliding_window(pred_probs, window_size):
+    '''
+    Predicts a clipwise class by determining which class has the least difference between the class score and any
+    average framewise probability taken over a sliding framewise window.
+    :param pred_probs (np.array) [n_frames]: Framewise prediction probabilities
+    :return (int): Clip class prediction
+    '''
+    prob_extremes = [1., 0.]
+    for i in range(pred_probs.shape[0] - window_size):
+        window_prob = np.mean(pred_probs[i:i + window_size])
+        if window_prob < prob_extremes[0]:
+            prob_extremes[0] = window_prob
+        if window_prob > prob_extremes[1]:
+            prob_extremes[1] = window_prob
+    return prob_extremes[0] > 1. - prob_extremes[1]
+
+
+def max_contiguous_pleural_preds(pred_probs, class_thresh, contiguity_thresh):
+    '''
+    Predicts a clipwise class as pleural if there is at least 1 instance of contiguity_thresh contiguous frames for
+    which the prediction is pleural.
+    :param pred_probs (np.array) [n_frames]: Framewise prediction probabilities
+    :param class_thresh (float): Classification threshold (in [0, 1])
+    :param contiguity_thresh (int): Number of contiguous frames for which the prediction is pleural to return a pleural
+                                    clipwise prediction
+    :return (int): Clip class prediction
+    '''
+    max_contiguous = cur_contiguous = 0
+    for i in range(pred_probs.shape[0]):
+        if pred_probs[i] >= class_thresh:
+            cur_contiguous += 1
+        else:
+            cur_contiguous = 0
+        if cur_contiguous > max_contiguous:
+            max_contiguous = cur_contiguous
+    return max_contiguous >= contiguity_thresh
+
 
 def compute_frame_predictions(cfg, dataset_files_path, class_thresh=0.5, calculate_metrics=True):
     '''
@@ -146,7 +204,6 @@ def compute_frame_predictions(cfg, dataset_files_path, class_thresh=0.5, calcula
     _, preprocessing_fn = get_model(model_type)
     model = load_model(cfg['PATHS']['MODEL_TO_LOAD'], compile=False)
     set_name = dataset_files_path.split('/')[-1].split('.')[0] + '_frames'
-
     files_df = pd.read_csv(dataset_files_path)
 
     # Make predictions for each image
@@ -156,15 +213,15 @@ def compute_frame_predictions(cfg, dataset_files_path, class_thresh=0.5, calcula
     if calculate_metrics:
         frame_labels = files_df['Class']  # Get ground truth
         metrics = compute_metrics(np.array(frame_labels), np.array(pred_classes), pred_probs)
-        json.dump(metrics, open(cfg['PATHS']['METRICS'] + set_name +
-                                datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json', 'w'))
+        json.dump(metrics, open(os.path.join(cfg['PATHS']['METRICS'], 'frames_' +
+                                             datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json'), 'w'))
 
     # Save predictions
-    pred_probs_df = pd.DataFrame(pred_probs, columns=cfg['DATA']['CLASSES'])
+    pred_probs_df = pd.DataFrame(pred_probs, columns=['Pleural View Probability'])
     pred_probs_df.insert(0, 'Frame Path', files_df['Frame Path'])
     pred_probs_df.insert(1, 'Class', files_df['Class'])
-    pred_probs_df.to_csv(cfg['PATHS']['BATCH_PREDS'] + set_name + '_predictions' +
-                          datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.csv')
+    pred_probs_df.to_csv(os.path.join(cfg['PATHS']['BATCH_PREDS'], 'frame_predictions' +
+                                      datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.csv'))
     return pred_probs_df
 
 
@@ -193,8 +250,9 @@ def clock_avg_runtime(n_gpu_warmup_runs, n_experiment_runs):
 
 if __name__ == '__main__':
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
-    frames_path = cfg['PATHS']['FRAMES_TABLE']
+    frames_path = cfg['PATHS']['TEST_FRAMES_TABLE']
     clips_path = cfg['PATHS']['TEST_CLIPS_TABLE']
-    compute_clip_predictions(cfg, frames_path, clips_path, clip_pred_method='average',
+    compute_clip_predictions(cfg, frames_path, clips_path,
+                             clip_pred_method=cfg['CLIP_PREDICTION']['CLIP_PREDICTION_METHOD'],
                              class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'], calculate_metrics=True)
-    #compute_frame_predictions(cfg, frames_path, class_thresh=0.9, calculate_metrics=True)
+    #compute_frame_predictions(cfg, frames_path, class_thresh=0.5, calculate_metrics=True)

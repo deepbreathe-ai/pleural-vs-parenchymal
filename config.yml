@@ -3,7 +3,8 @@ PATHS:
   FRAMES_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3\\frames'
   CLIPS_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\clips_table.csv'
   PARTITIONS_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions'
-  TEST_CLIPS_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions\\20211123-154033\\test_set_clips.csv'
+  TEST_CLIPS_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions\\20211125-224334\\test_set_clips.csv'
+  TEST_FRAMES_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions\\20211125-224334\\test_set_frames.csv'
   MASKED_CLIPS_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3'
   HEATMAPS: 'img/heatmaps'
   LOGS: 'results/logs/'
@@ -63,6 +64,9 @@ HPARAMS:
 
 CLIP_PREDICTION:
   CLASSIFICATION_THRESHOLD: 0.5
+  CLIP_PREDICTION_METHOD: 'contiguity_threshold'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshsold'}
+  WINDOW_SIZE: 20
+  CONTIGUITY_THRESHOLD: 20
 
 HPARAM_SEARCH:
   MODEL1:

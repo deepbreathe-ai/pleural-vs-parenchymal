@@ -81,7 +81,7 @@ def partition_dataset(val_split, test_split, save_dfs=True):
 
     train_df_frames['Clip'] = train_df_frames['Frame Path'].str.rsplit('_', 1, expand=True)[0]
     val_df_frames['Clip'] = val_df_frames['Frame Path'].str.rsplit('_', 1, expand=True)[0]
-    test_df_frames['Clip'] = test_df_frames['Patient'].str.rsplit('_', 1, expand=True)[0]
+    test_df_frames['Clip'] = test_df_frames['Frame Path'].str.rsplit('_', 1, expand=True)[0]
 
     train_df_clips = train_df_frames.groupby('Clip').first().reset_index().drop('Frame Path', axis=1).rename(columns={'Clip': 'filename'})
     val_df_clips = val_df_frames.groupby('Clip').first().reset_index().drop('Frame Path', axis=1).rename(columns={'Clip': 'filename'})
