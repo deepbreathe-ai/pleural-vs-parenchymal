@@ -8,6 +8,7 @@ import tensorflow as tf
 from sklearn.metrics import confusion_matrix, roc_curve
 import numpy as np
 import yaml
+from pandas.api.types import is_numeric_dtype
 
 mpl.rcParams['figure.figsize'] = (12, 8)
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
@@ -134,3 +135,59 @@ def visualize_heatmap(orig_img, heatmap, img_filename, label, probs, class_names
         filename = os.path.join(dir_path, img_filename.split('/')[-1] + '_gradcam_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
         plt.savefig(filename)
     return filename
+
+
+def plot_clip_pred_threshold_experiment(metrics_df, thresh_col, metrics_to_plot=None,
+                                     ax=None, im_path=None, title=None, x_label=None):
+    '''
+    Visualizes the Plot classification metrics for clip predictions over various B-line count thresholds.
+    :param metrics_df: DataFrame containing classification metrics for different. The first column should be the
+                       various B-line thresholds and the rest are classification metrics
+    :min_threshold: Minimum B-line threshold
+    :max_threshold: Maximum B-line threshold
+    :thresh_col: Column of DataFrame corresponding to threshold variable
+    :class_thresh: Classification threshold
+    :metrics_to_plot: List of metrics to include on the plot
+    :ax: Matplotlib subplot
+    :im_path: Path in which to save image
+    :title: Plot title
+    :x_label: X-label for plot
+    '''
+    min_threshold = metrics_df[thresh_col][0]
+    max_threshold = metrics_df[thresh_col][-1]
+
+    if ax is None:
+        ax = plt.subplot()
+    if title:
+        plt.title(title)
+    if x_label:
+        ax.set_xlabel(thresh_col)
+    ax.set_ylim(0., 1.)
+
+    if metrics_to_plot is None:
+        metric_names = [m for m in metrics_df.columns if m != thresh_col and is_numeric_dtype(metrics_df[m])]
+    else:
+        metric_names = metrics_to_plot
+
+    # Plot each metric as a separate series and place a legend
+    for metric_name in metric_names:
+        if is_numeric_dtype(metrics_df[metric_name]):
+            ax.plot(metrics_df[thresh_col], metrics_df[metric_name])
+
+    # Change axis ticks and add grid
+    #ax.minorticks_on()
+    # for tick in ax.get_xticklabels():
+    #     tick.set_color('gray')
+    # for tick in ax.get_yticklabels():
+    #     tick.set_color('gray')
+    ax.set_xlim(min_threshold - 1, max_threshold + 1)
+    ax.xaxis.set_ticks(np.arange(0, max_threshold + 1, 5))
+    ax.yaxis.set_ticks(np.arange(0., 1.01, 0.1))
+    # ax.grid(True, which='both', color='lightgrey')
+
+    # Draw legend
+    ax.legend(metric_names, loc='lower right')
+
+    if im_path:
+        plt.savefig(im_path)
+    return ax

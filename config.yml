@@ -6,6 +6,7 @@ PATHS:
   TEST_CLIPS_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions\\20211125-224334\\test_set_clips.csv'
   TEST_FRAMES_TABLE: 'B:\\Datasets\\view_classifier_binary\\internal_3\\partitions\\20211125-224334\\test_set_frames.csv'
   MASKED_CLIPS_DIR: 'B:\\Datasets\\view_classifier_binary\\internal_3'
+  FRAME_PREDICTIONS: 'results/predictions/frame_predictions20211126-181026.csv'
   HEATMAPS: 'img/heatmaps'
   LOGS: 'results/logs/'
   IMAGES: 'results/figures/'

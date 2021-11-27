@@ -122,11 +122,11 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
                                              datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json'), 'w'))
 
     # Save predictions
-    pred_df = pd.DataFrame(clip_pred_classes)
+    pred_df = pd.DataFrame(clip_pred_classes, columns=['Pred Class'])
     if all_pred_probs is not None:
         pred_df['Pred probs'] = all_pred_probs
     pred_df.insert(0, 'filename', clips_df['filename'])
-    pred_df.insert(1, 'Class', clips_df['Class'])
+    pred_df.insert(1, 'Class', clips_df['Class Label'])
     pred_df.to_csv(os.path.join(cfg['PATHS']['BATCH_PREDS'] + 'clip_predictions' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.csv'))
     return pred_df
 
@@ -252,7 +252,7 @@ if __name__ == '__main__':
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
     frames_path = cfg['PATHS']['TEST_FRAMES_TABLE']
     clips_path = cfg['PATHS']['TEST_CLIPS_TABLE']
-    compute_clip_predictions(cfg, frames_path, clips_path,
-                             clip_pred_method=cfg['CLIP_PREDICTION']['CLIP_PREDICTION_METHOD'],
-                             class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'], calculate_metrics=True)
-    #compute_frame_predictions(cfg, frames_path, class_thresh=0.5, calculate_metrics=True)
+    #compute_clip_predictions(cfg, frames_path, clips_path,
+    #                         clip_pred_method=cfg['CLIP_PREDICTION']['CLIP_PREDICTION_METHOD'],
+    #                         class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'], calculate_metrics=True)
+    compute_frame_predictions(cfg, frames_path, class_thresh=0.5, calculate_metrics=True)
