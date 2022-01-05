@@ -2,6 +2,8 @@ from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as mobilenetv2_preprocess
 from tensorflow.keras.applications.inception_v3 import InceptionV3
 from tensorflow.keras.applications.inception_v3 import preprocess_input as inceptionv3_preprocess
+from tensorflow.keras.applications.resnet_v2 import ResNet50V2
+from tensorflow.keras.applications.resnet_v2 import preprocess_input as resnet_50v2_preprocess
 from tensorflow.keras.applications.vgg16 import VGG16
 from tensorflow.keras.applications.vgg16 import preprocess_input as vgg16_preprocess
 
@@ -23,6 +25,12 @@ def get_model(model_name):
     elif model_name == 'inceptionv3':
         model_def = inception_v3
         preprocessing_function = inceptionv3_preprocess
+    elif model_name == 'resnet50v2':
+        model_def = resnet50v2
+        preprocessing_function = resnet_50v2_preprocess
+    elif model_name == 'vgg16':
+        model_def = vgg16
+        preprocessing_function = vgg16_preprocess
     elif model_name == 'cutoffvgg16':
         model_def = CutoffVGG16
         preprocessing_function = vgg16_preprocess
@@ -118,6 +126,99 @@ def inception_v3(model_config, input_shape, metrics, n_classes, output_bias=None
     X = Dropout(dropout)(X)
     #X = Dense(fc0_nodes, activation='relu', activity_regularizer=l2(weight_decay), name='fc0')(X)
     X = Dense(1, bias_initializer=output_bias, name='logits')(X)
+    Y = Activation('sigmoid', dtype='float32', name='output')(X)
+
+    # Set model loss function, optimizer, metrics.
+    model = Model(inputs=X_input, outputs=Y)
+    model.summary()
+    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=metrics)
+    return model
+
+def resnet50v2(model_config, input_shape, metrics, n_classes, output_bias=None):
+    '''
+    Defines a model based on a pretrained MobileNetV2 for binary US classification.
+    :param model_config: A dictionary of parameters associated with the model architecture
+    :param input_shape: The shape of the model input
+    :param metrics: Metrics to track model's performance
+    :param output_bias: bias initializer of output layer
+    :return: a Keras Model object with the architecture defined in this method
+    '''
+
+    # Set hyperparameters
+    lr = model_config['LR']
+    dropout = model_config['DROPOUT']
+    optimizer = Adam(learning_rate=lr)
+    weight_decay = model_config['L2_LAMBDA']
+    fc0_nodes = model_config['NODES_FC0']
+    frozen_layers = model_config['FROZEN_LAYERS']
+    print("MODEL HYPERPARAMETERS: ", model_config)
+
+    if output_bias is not None:
+        output_bias = Constant(output_bias)  # Set initial output bias
+
+    # Start with pretrained MobileNetV2
+    X_input = Input(input_shape, name='input')
+    base_model = ResNet50V2(include_top=False, weights='imagenet', input_shape=input_shape, input_tensor=X_input)
+
+    # Freeze layers
+    for layers in range(len(frozen_layers)):
+        layer2freeze = frozen_layers[layers]
+        print('Freezing layer: ' + str(layer2freeze))
+        base_model.layers[layer2freeze].trainable = False
+
+    X = base_model.output
+
+    # Add custom top layers
+    X = GlobalAveragePooling2D()(X)
+    X = Dropout(dropout)(X)
+    #X = Dense(fc0_nodes, activation='relu', activity_regularizer=l2(weight_decay), name='fc0')(X)
+    X = Dense(1, name='logits')(X)
+    Y = Activation('sigmoid', dtype='float32', name='output')(X)
+
+    # Set model loss function, optimizer, metrics.
+    model = Model(inputs=X_input, outputs=Y)
+    model.summary()
+    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=metrics)
+    return model
+
+def vgg16(model_config, input_shape, metrics, n_classes, output_bias=None):
+    '''
+    Defines a model based on a pretrained MobileNetV2 for binary US classification.
+    :param model_config: A dictionary of parameters associated with the model architecture
+    :param input_shape: The shape of the model input
+    :param metrics: Metrics to track model's performance
+    :param output_bias: bias initializer of output layer
+    :return: a Keras Model object with the architecture defined in this method
+    '''
+
+    # Set hyperparameters
+    lr = model_config['LR']
+    dropout = model_config['DROPOUT']
+    optimizer = Adam(learning_rate=lr)
+    weight_decay = model_config['L2_LAMBDA']
+    frozen_layers = model_config['FROZEN_LAYERS']
+    print("MODEL HYPERPARAMETERS: ", model_config)
+
+    if output_bias is not None:
+        output_bias = Constant(output_bias)  # Set initial output bias
+
+    # Start with pretrained MobileNetV2
+    X_input = Input(input_shape, name='input')
+    base_model = VGG16(include_top=False, weights='imagenet', input_shape=input_shape, input_tensor=X_input)
+
+    # Freeze layers
+    for layers in range(len(frozen_layers)):
+        layer2freeze = frozen_layers[layers]
+        print('Freezing layer: ' + str(layer2freeze))
+        base_model.layers[layer2freeze].trainable = False
+
+    X = base_model.output
+
+    # Add custom top layers
+    X = GlobalAveragePooling2D()(X)
+    X = Dropout(dropout)(X)
+    #X = Dense(fc0_nodes, activation='relu', activity_regularizer=l2(weight_decay), name='fc0')(X)
+    X = Dense(1, name='logits')(X)
     Y = Activation('sigmoid', dtype='float32', name='output')(X)
 
     # Set model loss function, optimizer, metrics.
