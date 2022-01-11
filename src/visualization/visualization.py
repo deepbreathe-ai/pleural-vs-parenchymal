@@ -213,6 +213,8 @@ def plot_clip_pred_experiment(metrics_df, var_col, metrics_to_plot=None,
     :title: Plot title
     :x_label: X-label for plot
     :y_label: X-label for plot
+    :model_name: Name of model used to generate predictions being plotted
+    :experiment_type: Name of experiment used to generate values being plotted
     '''
 
     if metrics_to_plot is None:

@@ -15,7 +15,14 @@ from visualization.visualization import plot_clip_pred_experiment
 
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
 
-def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_tau=5, max_tau=60):
+def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_contiguity_thresh=5, max_contiguity_thresh=60):
+    '''
+    Acquires a clip-wise accuracy score for a set of frame predictions across a range of contiguity thresholds.
+    :frame_preds: DataFrame containing frame prediction probabilities
+    :class_thresh: Classification threshold (in [0, 1]) used for all prediction generation
+    :min_tau: Minimum contiguity threshold for experiment
+    :max_tau: Maximum contiguity threshold for experiment
+    '''
     frames_table_path = cfg['PATHS']['TEST_FRAMES_TABLE']
     clips_table_path = cfg['PATHS']['TEST_CLIPS_TABLE']
 
@@ -26,9 +33,9 @@ def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_tau=5, max_t
     clip_labels = clips_df['Class']
 
     accuracies = []
-    taus = np.arange(min_tau, max_tau, 5)
+    contiguity_thresholds = np.arange(min_contiguity_thresh, max_contiguity_thresh, 5)
 
-    for tau in taus:
+    for tau in contiguity_thresholds:
         clip_pred_classes = []
         print("Making predictions using tau = {}".format(tau))
         for i in tqdm(range(len(clip_names)),position=0, leave=True):
@@ -43,7 +50,7 @@ def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_tau=5, max_t
         metrics = compute_metrics(np.array(clip_labels), np.array(clip_pred_classes))
         accuracies.append(metrics['accuracy'])
     print(accuracies)
-    metrics_df = pd.DataFrame({'tau': taus, 'accuracy': accuracies})
+    metrics_df = pd.DataFrame({'tau': contiguity_thresholds, 'accuracy': accuracies})
     print(metrics_df)
     plot_clip_pred_experiment(metrics_df=metrics_df,
                                         var_col='tau',
@@ -55,6 +62,12 @@ def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_tau=5, max_t
 
 
 def explore_sliding_window(frame_preds, min_window=5, max_window=60):
+    '''
+    Acquires a clip-wise accuracy score for a set of frame predictions across a range of contiguity thresholds.
+    :frame_preds: DataFrame containing frame prediction probabilities
+    :min_tau: Minimum window size for experiment
+    :max_tau: Maximum window size for experiment
+    '''
     frames_table_path = cfg['PATHS']['TEST_FRAMES_TABLE']
     clips_table_path = cfg['PATHS']['TEST_CLIPS_TABLE']
 
