@@ -5,9 +5,11 @@ import io
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import tensorflow as tf
+import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_curve
 import numpy as np
 import yaml
+from pandas.api.types import is_numeric_dtype
 
 mpl.rcParams['figure.figsize'] = (12, 8)
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
@@ -101,7 +103,7 @@ def plot_confusion_matrix(labels, predictions, class_name_list, dir_path=None, t
     print('Confusion matrix: ', cm)    # Print the confusion matrix
     return plt
 
-def visualize_heatmap(orig_img, heatmap, img_filename, label, probs, class_names, dir_path=None):
+def visualize_heatmap(orig_img, heatmap, img_filename, label, prob, class_names, dir_path=None):
     '''
     Obtain a comparison of an original image and heatmap produced by Grad-CAM.
     :param orig_img: Original X-Ray image
@@ -119,10 +121,9 @@ def visualize_heatmap(orig_img, heatmap, img_filename, label, probs, class_names
     ax[1].imshow(heatmap)
 
     # Display some information about the example
-    pred_class = np.round(probs)
-    fig.text(0.02, 0.90, "Prediction probabilities for: " + str(class_names) + ': ' +
-             str(['{:.2f}'.format(probs[i]) for i in range(len(probs))]), fontsize=10)
-    fig.text(0.02, 0.92, "Predicted Class: " + str(int(pred_class[0])) + ' (' + class_names[int(pred_class[0])] + ')', fontsize=10)
+    pred_class = np.round(prob)
+    fig.text(0.02, 0.90, "Prediction probability: " + str(prob), fontsize=10)
+    fig.text(0.02, 0.92, "Predicted Class: " + str(int(pred_class)) + ' (' + class_names[int(pred_class)] + ')', fontsize=10)
     if label is not None:
         fig.text(0.02, 0.94, "Ground Truth Class: " + str(label) + ' (' + class_names[label] + ')', fontsize=10)
     fig.suptitle("Grad-CAM heatmap for image " + img_filename, fontsize=8, fontweight='bold')
@@ -134,3 +135,112 @@ def visualize_heatmap(orig_img, heatmap, img_filename, label, probs, class_names
         filename = os.path.join(dir_path, img_filename.split('/')[-1] + '_gradcam_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
         plt.savefig(filename)
     return filename
+
+
+def plot_clip_pred_threshold_experiment_old(metrics_df, var_col, metrics_to_plot=None,
+                                        ax=None, im_path=None, title=None, x_label=None):
+    '''
+    Visualizes the Plot classification metrics for clip predictions over various B-line count thresholds.
+    :param metrics_df: DataFrame containing classification metrics for different. The first column should be the
+                       various B-line thresholds and the rest are classification metrics
+    :min_threshold: Minimum B-line threshold
+    :max_threshold: Maximum B-line threshold
+    :thresh_col: Column of DataFrame corresponding to threshold variable
+    :class_thresh: Classification threshold
+    :metrics_to_plot: List of metrics to include on the plot
+    :ax: Matplotlib subplot
+    :im_path: Path in which to save image
+    :title: Plot title
+    :x_label: X-label for plot
+    '''
+    min_threshold = metrics_df[var_col][0]
+    max_threshold = metrics_df[var_col][len(metrics_df[var_col]) - 1]
+
+    min_y_lim = 1.0
+    max_y_lim = 0.0
+    for x in metrics_to_plot:
+        min = metrics_df[x].min()
+        max = metrics_df[x].max()
+        min_y_lim = min if min < min_y_lim else min_y_lim
+        max_y_lim = max if max < max_y_lim else max_y_lim
+
+    if ax is None:
+        ax = plt.subplot()
+    if title:
+        plt.title(title)
+    if x_label:
+        ax.set_xlabel(var_col)
+
+    if metrics_to_plot is None:
+        metric_names = [m for m in metrics_df.columns if m != var_col and is_numeric_dtype(metrics_df[m])]
+    else:
+        metric_names = metrics_to_plot
+
+    # Plot each metric as a separate series and place a legend
+    for metric_name in metric_names:
+        if is_numeric_dtype(metrics_df[metric_name]):
+            ax.plot(metrics_df[var_col], metrics_df[metric_name])
+
+    # Change axis ticks and add grid
+    #ax.minorticks_on()
+    # for tick in ax.get_xticklabels():
+    #     tick.set_color('gray')
+    # for tick in ax.get_yticklabels():
+    #     tick.set_color('gray')
+    ax.set_xlim(min_threshold - 1, max_threshold + 1)
+    ax.set_ylim(min_y_lim-0.02, max_y_lim+0.02)
+    ax.xaxis.set_ticks(np.arange(0, max_threshold + 1, 5))
+    ax.yaxis.set_ticks(np.arange(min_y_lim-0.02, max_y_lim+0.02, 0.1))
+    # ax.grid(True, which='both', color='lightgrey')
+
+    # Draw legend
+    ax.legend(metric_names, loc='lower right')
+    plt.show()
+    if im_path:
+        plt.savefig(im_path + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    return ax
+
+def plot_clip_pred_experiment(metrics_df, var_col, metrics_to_plot=None,
+                                        im_path=None, title=None, x_label=None,  y_label=None,
+                                        model_name = None, experiment_type = None):
+    '''
+    Visualizes the Plot classification metrics for clip predictions over various B-line count thresholds.
+    :param metrics_df: DataFrame containing classification metrics for different. The first column should be the
+                       various B-line thresholds and the rest are classification metrics
+    :var_col: Column of DataFrame corresponding to variable
+    :metrics_to_plot: List of metrics to include on the plot
+    :im_path: Path in which to save image
+    :title: Plot title
+    :x_label: X-label for plot
+    :y_label: X-label for plot
+    :model_name: Name of model used to generate predictions being plotted
+    :experiment_type: Name of experiment used to generate values being plotted
+    '''
+
+    if metrics_to_plot is None:
+        metric_names = [m for m in metrics_df.columns if m != var_col and is_numeric_dtype(metrics_df[m])]
+    else:
+        metric_names = metrics_to_plot
+
+    # Plot each metric as a separate series and place a legend after clearing the plot
+    plt.clf()
+    for metric_name in metric_names:
+        if is_numeric_dtype(metrics_df[metric_name]):
+            sns.lineplot(x=metrics_df[var_col], y=metrics_df[metric_name])
+
+    # Draw legend
+    if title:
+        plt.title(title)
+    if x_label:
+        plt.xlabel(var_col)
+    if y_label:
+        plt.ylabel(var_col)
+    plt.legend(metric_names)
+    if im_path:
+        savefig_name = im_path
+        if model_name:
+            savefig_name  = savefig_name + model_name+"-"
+        if experiment_type:
+            savefig_name = savefig_name + experiment_type+"-"
+        plt.savefig(savefig_name + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    return
