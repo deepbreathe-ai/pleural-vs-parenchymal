@@ -8,12 +8,11 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 import multiprocessing
 
-
-
 from src.predict import max_contiguous_pleural_preds, max_sliding_window, compute_metrics
 from visualization.visualization import plot_clip_pred_experiment
 
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
+
 
 def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_contiguity_thresh=5, max_contiguity_thresh=60):
     '''
@@ -35,10 +34,12 @@ def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_contiguity_t
     accuracies = []
     contiguity_thresholds = np.arange(min_contiguity_thresh, max_contiguity_thresh, 5)
 
+    # for each contiguity threshold, acquire an accuracy score
     for tau in contiguity_thresholds:
         clip_pred_classes = []
         print("Making predictions using tau = {}".format(tau))
-        for i in tqdm(range(len(clip_names)),position=0, leave=True):
+        # obtain class predictions using the current tau
+        for i in tqdm(range(len(clip_names)), position=0, leave=True):
             clip_name = clip_names[i]
             clip_files_df = frames_df[frames_df['Frame Path'].str.contains(clip_name)]
             if clip_files_df.shape[0] == 0:
@@ -53,12 +54,13 @@ def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_contiguity_t
     metrics_df = pd.DataFrame({'tau': contiguity_thresholds, 'accuracy': accuracies})
     print(metrics_df)
     plot_clip_pred_experiment(metrics_df=metrics_df,
-                                        var_col='tau',
-                                        metrics_to_plot=['accuracy'],
-                                        im_path=cfg['PATHS']['EXPERIMENT_IMG'],
-                                        title='Accuracy vs Contiguity Threshold With Classification Threshold '+str(class_thresh),
-                                        x_label='Contiguity Threshold',
-                                        experiment_type='contiguity_threshold')
+                              var_col='tau',
+                              metrics_to_plot=['accuracy'],
+                              im_path=cfg['PATHS']['EXPERIMENT_IMG'],
+                              title='Accuracy vs Contiguity Threshold With Classification Threshold ' + str(
+                                  class_thresh),
+                              x_label='Contiguity Threshold',
+                              experiment_type='contiguity_threshold')
 
 
 def explore_sliding_window(frame_preds, min_window=5, max_window=60):
@@ -80,9 +82,11 @@ def explore_sliding_window(frame_preds, min_window=5, max_window=60):
     accuracies = []
     windows = np.arange(min_window, max_window, 5)
 
+    # for each window size, acquire an accuracy score
     for window in windows:
         clip_pred_classes = []
         print("Making predictions using window = {}".format(window))
+        # obtain class predictions using the current window
         for i in tqdm(range(len(clip_names)), position=0, leave=True):
             clip_name = clip_names[i]
             clip_files_df = frames_df[frames_df['Frame Path'].str.contains(clip_name)]
@@ -97,15 +101,16 @@ def explore_sliding_window(frame_preds, min_window=5, max_window=60):
     print(accuracies)
     metrics_df = pd.DataFrame({'window': windows, 'accuracy': accuracies})
     print(metrics_df)
-    plot_clip_pred_experiment(metrics_df = metrics_df,
-                                        var_col='window',
-                                        metrics_to_plot=['accuracy'],
-                                        im_path=cfg['PATHS']['EXPERIMENT_IMG'],
-                                        title='Accuracy vs Window Size',
-                                        x_label='Window Size',
-                                        experiment_type = 'sliding-window')
+    plot_clip_pred_experiment(metrics_df=metrics_df,
+                              var_col='window',
+                              metrics_to_plot=['accuracy'],
+                              im_path=cfg['PATHS']['EXPERIMENT_IMG'],
+                              title='Accuracy vs Window Size',
+                              x_label='Window Size',
+                              experiment_type='sliding-window')
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     frame_preds = pd.read_csv(cfg['PATHS']['FRAME_PREDICTIONS'])
-    explore_sliding_window(frame_preds,5,60)
-    explore_contiguity_threshold(frame_preds,0.5,5,60)
+    explore_sliding_window(frame_preds, 5, 60)
+    explore_contiguity_threshold(frame_preds, 0.5, 5, 60)
