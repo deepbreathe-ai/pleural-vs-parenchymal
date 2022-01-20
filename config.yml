@@ -24,7 +24,7 @@ DATA:
   CLASSES: ['parenchymal', 'pleural']   # Classes for binary classification
 
 TRAIN:
-  MODEL_DEF: 'vgg16'
+  MODEL_DEF: 'cutoffvgg16'
   N_CLASSES: 2
   BATCH_SIZE: 128
   EPOCHS: 10
@@ -75,12 +75,20 @@ HPARAMS:
     CUTOFF_LAYER: 10
     FINETUNE_LAYER: 7
     EXTRACT_EPOCHS: 5
+  CUTOFFRESNET50V2:
+    DEPTH: 56
+    LR: 0.01
+    DROPOUT: 0.5
+    L2_LAMBDA: 0.01
+    NODES_DENSE0: 64
+    FROZEN_LAYERS: [ ]
 
 CLIP_PREDICTION:
   CLASSIFICATION_THRESHOLD: 0.5
-  CLIP_PREDICTION_METHOD: 'contiguity_threshold'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshsold'}
+  CLIP_PREDICTION_METHOD: 'longest_window'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshsold', 'longest_window'}
   WINDOW_SIZE: 20
   CONTIGUITY_THRESHOLD: 20
+  WINDOW_CERTAINTY: 0.2
 
 HPARAM_SEARCH:
   MODEL1:

@@ -110,6 +110,9 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
         elif clip_pred_method == 'max_sliding_window':
             window_size = cfg['CLIP_PREDICTION']['WINDOW_SIZE']
             clip_pred_class = max_sliding_window(pred_probs, window_size)
+        elif clip_pred_method == 'longest_window':
+            window_certainty = cfg['CLIP_PREDICTION']['WINDOW_CERTAINTY']
+            clip_pred_class = longest_window(pred_probs, window_certainty, class_thresh)
         else:
             clip_pred_class, clip_pred_prob = avg_clip_prediction(pred_probs, class_thresh)
             all_pred_probs[i] = clip_pred_prob
@@ -159,6 +162,7 @@ def max_sliding_window(pred_probs, window_size):
     Predicts a clipwise class by determining which class has the least difference between the class score and any
     average framewise probability taken over a sliding framewise window.
     :param pred_probs (np.array) [n_frames]: Framewise prediction probabilities
+    :param window_size int: length of sliding window
     :return (int): Clip class prediction
     '''
     prob_extremes = [1., 0.]
@@ -190,6 +194,40 @@ def max_contiguous_pleural_preds(pred_probs, class_thresh, contiguity_thresh):
         if cur_contiguous > max_contiguous:
             max_contiguous = cur_contiguous
     return max_contiguous >= contiguity_thresh
+
+def longest_window(pred_probs, window_certainty, class_thresh):
+    '''
+    Predicts a clipwise class by determining which class has the least difference between the class score and any
+    average framewise probability taken over a sliding framewise window.
+    :param pred_probs (np.array) [n_frames]: Framewise prediction probabilities
+    :param window_certainty float: threshold for prediction certainty to being included in the window
+    :return (int): Clip class prediction
+    '''
+    #a window is a pair of a class and window length
+    long_window = [-1, 0]
+    curr_window = [-1, 0]
+    for i in range(pred_probs.shape[0]):
+        # obtain class using window certainty threshold
+        pred_class = -1
+        if pred_probs[i] < window_certainty:
+            pred_class = 0
+        elif pred_probs[i] > 1-window_certainty:
+            pred_class = 1
+        else:
+            curr_window = [-1, 0]
+            continue
+        # either increment the current window or start a new window based on this frame's class
+        if curr_window[0] == pred_class:
+            curr_window[1] += 1
+        else:
+            curr_window = [pred_class, 1]
+        # check if longest window needs to be updated
+        if curr_window[1] > long_window[1]:
+            long_window = curr_window
+    # return the class of the longest window
+    if long_window[0] == -1:
+        return avg_clip_prediction(pred_probs, class_thresh)[0]
+    return long_window[0]
 
 
 def compute_frame_predictions(cfg, dataset_files_path, class_thresh=0.5, calculate_metrics=True):
@@ -252,7 +290,7 @@ if __name__ == '__main__':
     cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
     frames_path = cfg['PATHS']['TEST_FRAMES_TABLE']
     clips_path = cfg['PATHS']['TEST_CLIPS_TABLE']
-    #compute_clip_predictions(cfg, frames_path, clips_path,
-    #                         clip_pred_method=cfg['CLIP_PREDICTION']['CLIP_PREDICTION_METHOD'],
-    #                         class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'], calculate_metrics=True)
-    compute_frame_predictions(cfg, frames_path, class_thresh=0.5, calculate_metrics=True)
+    compute_clip_predictions(cfg, frames_path, clips_path,
+                            clip_pred_method=cfg['CLIP_PREDICTION']['CLIP_PREDICTION_METHOD'],
+                            class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'], calculate_metrics=True)
+    #compute_frame_predictions(cfg, frames_path, class_thresh=0.5, calculate_metrics=True)
