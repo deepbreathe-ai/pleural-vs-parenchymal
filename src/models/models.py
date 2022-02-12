@@ -4,13 +4,14 @@ from tensorflow.keras.applications.inception_v3 import InceptionV3
 from tensorflow.keras.applications.inception_v3 import preprocess_input as inceptionv3_preprocess
 from tensorflow.keras.applications.resnet_v2 import ResNet50V2
 from tensorflow.keras.applications.resnet_v2 import preprocess_input as resnet_50v2_preprocess
-from tensorflow.keras.applications.efficientnet import EfficientNetB1 as EfficientNet
+from tensorflow.keras.applications.efficientnet import EfficientNetB0
 from tensorflow.keras.applications.efficientnet import preprocess_input as efficientnet_preprocess
 from tensorflow.keras.applications.vgg16 import VGG16
 from tensorflow.keras.applications.vgg16 import preprocess_input as vgg16_preprocess
 
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Dense, Dropout, Input, Activation, GlobalAveragePooling2D, BatchNormalization, AveragePooling2D, Flatten, Conv2D
+from tensorflow.keras.layers import Dense, Dropout, Input, Activation, GlobalAveragePooling2D, BatchNormalization, \
+    AveragePooling2D, Flatten, Conv2D, DepthwiseConv2D
 from tensorflow.keras.optimizers import Adam, RMSprop
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.initializers import Constant
@@ -32,7 +33,7 @@ def get_model(model_name):
     elif model_name == 'resnet50v2':
         model_def = resnet50v2
         preprocessing_function = resnet_50v2_preprocess
-    elif model_name == 'efficientnet':
+    elif model_name == 'efficientnetb0':
         model_def = efficientnet
         preprocessing_function = efficientnet_preprocess
     elif model_name == 'resnet14v2':
@@ -208,7 +209,7 @@ def efficientnet(model_config, input_shape, metrics, n_classes, output_bias=None
     lr = model_config['LR']
     dropout = model_config['DROPOUT']
     optimizer = Adam(learning_rate=lr)
-    weight_decay = model_config['L2_LAMBDA']
+    l2_regularizer = tf.keras.regularizers.l2(model_config['L2_LAMBDA'])
     fc0_nodes = model_config['NODES_FC0']
     frozen_layers = model_config['FROZEN_LAYERS']
     print("MODEL HYPERPARAMETERS: ", model_config)
@@ -218,20 +219,25 @@ def efficientnet(model_config, input_shape, metrics, n_classes, output_bias=None
 
     # Start with pretrained MobileNetV2
     X_input = Input(input_shape, name='input')
-    base_model = EfficientNet(include_top=False, weights='imagenet', input_shape=input_shape, input_tensor=X_input)
+    base_model = EfficientNetB0(include_top=False, weights='imagenet', input_shape=input_shape, input_tensor=X_input)
 
-    # Freeze layers
-    for layers in range(len(frozen_layers)):
-        layer2freeze = frozen_layers[layers]
-        print('Freezing layer: ' + str(layer2freeze))
-        base_model.layers[layer2freeze].trainable = False
+    for layer_idx in range(len(base_model.layers)):
+        layer = base_model.layers[layer_idx]
+
+        # Freeze weights if necessary
+        if layer_idx < frozen_layers:
+            layer.trainable = False
+
+        # Add L2 regularization to convolutional layers
+        if isinstance(layer, Conv2D) or isinstance(layer, DepthwiseConv2D):
+            setattr(layer, 'activity_regularizer', l2_regularizer)
 
     X = base_model.output
 
     # Add custom top layers
     X = GlobalAveragePooling2D()(X)
     X = Dropout(dropout)(X)
-    #X = Dense(fc0_nodes, activation='relu', activity_regularizer=l2(weight_decay), name='fc0')(X)
+    X = Dense(fc0_nodes, activation='relu', kernel_regularizer=l2_regularizer, name='fc0')(X)
     X = Dense(1, name='logits')(X)
     Y = Activation('sigmoid', dtype='float32', name='output')(X)
 

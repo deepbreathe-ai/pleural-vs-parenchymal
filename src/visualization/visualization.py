@@ -10,6 +10,7 @@ from sklearn.metrics import confusion_matrix, roc_curve
 import numpy as np
 import yaml
 from pandas.api.types import is_numeric_dtype
+from skopt.plots import plot_objective
 
 mpl.rcParams['figure.figsize'] = (12, 8)
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
@@ -244,3 +245,41 @@ def plot_clip_pred_experiment(metrics_df, var_col, metrics_to_plot=None,
             savefig_name = savefig_name + experiment_type+"-"
         plt.savefig(savefig_name + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
     return
+
+def plot_bayesian_hparam_opt(model_name, hparam_names, search_results, save_fig=False):
+    '''
+    Plot all 2D hyperparameter comparisons from the logs of a Bayesian hyperparameter optimization.
+    :param model_name: Name of the model
+    :param hparam_names: List of hyperparameter identifiers
+    :param search_results: The object resulting from a Bayesian hyperparameter optimization with the skopt package
+    :param save_fig:
+    :return:
+    '''
+
+    # Abbreviate hyperparameters to improve plot readability
+    axis_labels = hparam_names.copy()
+    for i in range(len(axis_labels)):
+        if len(axis_labels[i]) >= 12:
+            axis_labels[i] = axis_labels[i][:4] + '...' + axis_labels[i][-4:]
+
+    # Plot
+    axes = plot_objective(result=search_results, dimensions=axis_labels)
+
+    # Create a title
+    fig = plt.gcf()
+    fig.suptitle('Bayesian Hyperparameter\n Optimization for ' + model_name, fontsize=15, x=0.65, y=0.97)
+
+    # Indicate which hyperparameter abbreviations correspond with which hyperparameter
+    hparam_abbrs_text = ''
+    for i in range(len(hparam_names)):
+        hparam_abbrs_text += axis_labels[i] + ':\n'
+    fig.text(0.50, 0.8, hparam_abbrs_text, fontsize=10, style='italic', color='mediumblue')
+    hparam_names_text = ''
+    for i in range(len(hparam_names)):
+        hparam_names_text += hparam_names[i] + '\n'
+    fig.text(0.65, 0.8, hparam_names_text, fontsize=10, color='darkblue')
+
+    fig.tight_layout()
+    if save_fig:
+        plt.savefig(os.path.join(cfg['PATHS']['EXPERIMENT_VISUALIZATIONS'], 'Bayesian_opt_' + model_name + '_' +
+                    datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png'))
