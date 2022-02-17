@@ -9,7 +9,7 @@ from tqdm import tqdm
 import multiprocessing
 
 from src.predict import max_contiguous_pleural_preds, max_sliding_window, compute_metrics, longest_window
-from visualization.visualization import plot_clip_pred_experiment
+from src.visualization.visualization import plot_clip_pred_experiment
 
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
 
@@ -158,5 +158,5 @@ def explore_longest_window(frame_preds, min_certainty=0.05, max_certainty = 0.4)
 if __name__ == '__main__':
     frame_preds = pd.read_csv(cfg['PATHS']['FRAME_PREDICTIONS'])
     explore_longest_window(frame_preds, 0.05, 0.4)
-    #explore_sliding_window(frame_preds, 5, 60)
-    #explore_contiguity_threshold(frame_preds, 0.5, 5, 60)
+    explore_sliding_window(frame_preds, 5, 60)
+    explore_contiguity_threshold(frame_preds, 0.5, 5, 60)

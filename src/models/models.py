@@ -229,15 +229,15 @@ def efficientnet(model_config, input_shape, metrics, n_classes, output_bias=None
             layer.trainable = False
 
         # Add L2 regularization to convolutional layers
-        if isinstance(layer, Conv2D) or isinstance(layer, DepthwiseConv2D):
-            setattr(layer, 'activity_regularizer', l2_regularizer)
+        # if isinstance(layer, Conv2D) or isinstance(layer, DepthwiseConv2D):
+        #     setattr(layer, 'activity_regularizer', l2_regularizer)
 
     X = base_model.output
 
     # Add custom top layers
     X = GlobalAveragePooling2D()(X)
     X = Dropout(dropout)(X)
-    X = Dense(fc0_nodes, activation='relu', kernel_regularizer=l2_regularizer, name='fc0')(X)
+    X = Dense(fc0_nodes, activation='relu', name='fc0')(X)
     X = Dense(1, name='logits')(X)
     Y = Activation('sigmoid', dtype='float32', name='output')(X)
 

@@ -74,8 +74,10 @@ def partition_dataset(val_split, test_split, save_dfs=True):
     frame_df = pd.read_csv(cfg['PATHS']['FRAMES_TABLE'])
     all_pts = frame_df['Patient'].unique()  # Get list of patients
     relative_val_split = val_split / (1 - (test_split))
-    trainval_pts, test_pts = train_test_split(all_pts, test_size=test_split)
-    train_pts, val_pts = train_test_split(trainval_pts, test_size=relative_val_split)
+    random_state = cfg['TRAIN']['RANDOM_STATE']
+    print('Splitting data with random state {}.'.format(random_state))
+    trainval_pts, test_pts = train_test_split(all_pts, test_size=test_split, random_state=random_state)
+    train_pts, val_pts = train_test_split(trainval_pts, test_size=relative_val_split, random_state=random_state)
 
     train_df_frames = frame_df[frame_df['Patient'].isin(train_pts)]
     val_df_frames = frame_df[frame_df['Patient'].isin(val_pts)]

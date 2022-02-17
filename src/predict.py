@@ -129,7 +129,7 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
     if all_pred_probs is not None:
         pred_df['Pred probs'] = all_pred_probs
     pred_df.insert(0, 'filename', clips_df['filename'])
-    pred_df.insert(1, 'Class', clips_df['Class Label'])
+    pred_df.insert(1, 'Class', clips_df['Class'])
     pred_df.to_csv(os.path.join(cfg['PATHS']['BATCH_PREDS'] + 'clip_predictions' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.csv'))
     return pred_df
 
