@@ -154,9 +154,12 @@ def explore_longest_window(frame_preds, min_certainty=0.05, max_certainty = 0.4)
                               x_label='Window Size',
                               experiment_type='longest-window')
 
-
-if __name__ == '__main__':
-    frame_preds = pd.read_csv(cfg['PATHS']['FRAME_PREDICTIONS'])
+def full_experiment(frame_preds):
     explore_longest_window(frame_preds, 0.05, 0.4)
     explore_sliding_window(frame_preds, 5, 60)
     explore_contiguity_threshold(frame_preds, 0.5, 5, 60)
+
+if __name__ == '__main__':
+    frame_preds = pd.read_csv(cfg['PATHS']['FRAME_PREDICTIONS'])
+    #run an experiment on all clip prediction algorithms
+    full_experiment((frame_preds))
