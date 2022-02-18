@@ -12,6 +12,8 @@ from tensorflow.keras.callbacks import Callback
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from skopt import gp_minimize
+from skopt.space import Real, Categorical, Integer
 
 from src.models.models import *
 from src.visualization.visualization import *
@@ -72,8 +74,10 @@ def partition_dataset(val_split, test_split, save_dfs=True):
     frame_df = pd.read_csv(cfg['PATHS']['FRAMES_TABLE'])
     all_pts = frame_df['Patient'].unique()  # Get list of patients
     relative_val_split = val_split / (1 - (test_split))
-    trainval_pts, test_pts = train_test_split(all_pts, test_size=test_split)
-    train_pts, val_pts = train_test_split(trainval_pts, test_size=relative_val_split)
+    random_state = cfg['TRAIN']['RANDOM_STATE']
+    print('Splitting data with random state {}.'.format(random_state))
+    trainval_pts, test_pts = train_test_split(all_pts, test_size=test_split, random_state=random_state)
+    train_pts, val_pts = train_test_split(trainval_pts, test_size=relative_val_split, random_state=random_state)
 
     train_df_frames = frame_df[frame_df['Patient'].isin(train_pts)]
     val_df_frames = frame_df[frame_df['Patient'].isin(val_pts)]
@@ -221,15 +225,17 @@ def train_model(model_def, preprocessing_fn, train_df, val_df, test_df, hparams,
     return model, test_metrics, test_set
 
 
-def train_single(hparams=None, save_weights=False, write_logs=False):
+def train_single(hparams=None, save_weights=False, write_logs=False, save_partitions=True):
     '''
     Train a single model. Use the passed hyperparameters if possible; otherwise, use those in config.
     :param hparams: Dict of hyperparameters
     :param save_model: Flag indicating whether to save the model
     :param write_logs: Flag indicating whether to write any training logs to disk
+    :param save_partitions: Flag indicating whether to save train/val/test partitions
     :return: Dictionary of test set performance metrics
     '''
-    train_df, val_df, test_df = partition_dataset(cfg['DATA']['VAL_SPLIT'], cfg['DATA']['TEST_SPLIT'])
+    train_df, val_df, test_df = partition_dataset(cfg['DATA']['VAL_SPLIT'], cfg['DATA']['TEST_SPLIT'],
+                                                  save_dfs=save_partitions)
     model_def, preprocessing_fn = get_model(cfg['TRAIN']['MODEL_DEF'])
     if write_logs:
         log_dir = os.path.join(cfg['PATHS']['LOGS'], CUR_DATETIME + '-' + cfg['TRAIN']['MODEL_DEF'])
@@ -247,6 +253,89 @@ def train_single(hparams=None, save_weights=False, write_logs=False):
     return test_metrics, model
 
 
+def save_hparam_search_results(init_dict, score, objective_metric, hparam_names, hparams, model_name, cur_datetime):
+    '''
+    Saves the results of a hyperparameter search in a table and a partial dependence plot
+    :param init_dict: Initial results dictionary (hyperparameter names for keys and empty lists as values)
+    :param score: Objective score for current iteration
+    :param objective_metric: Name of the objective metric
+    :param hparams: Hyperparameter value dictionary
+    :param model_name: Name of model
+    :param cur_datetime: String representation of current date and time
+    :return: Results dictionary
+    '''
+
+    # Create table to detail results
+    results_path = cfg['PATHS']['EXPERIMENTS'] + 'hparam_search_' + model_name + \
+                   cur_datetime + '.csv'
+    if os.path.exists(results_path):
+        results = pd.read_csv(results_path).to_dict(orient='list')
+    else:
+        results = init_dict
+    trial_idx = len(results['Trial'])
+    results['Trial'].append(str(trial_idx))
+    results[objective_metric].append(1.0 - score)
+    for hparam_name in hparam_names:
+        results[hparam_name].append(hparams[hparam_name])
+
+    results_df = pd.DataFrame(results)
+    results_df.to_csv(results_path, index_label=False, index=False)
+    return results
+
+def bayesian_hparam_optimization():
+    '''
+    Conducts a Bayesian hyperparameter optimization, given the parameter ranges and selected model
+    :return: Dict of hyperparameters deemed optimal
+    '''
+    model_name = cfg['TRAIN']['MODEL_DEF'].upper()
+    cur_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    objective_metric = cfg['HPARAM_SEARCH']['OBJECTIVE']
+    results = {'Trial': [], objective_metric: []}
+    dimensions = []
+    default_params = []
+    hparam_names = []
+    for hparam_name in cfg['HPARAM_SEARCH'][model_name]:
+        if cfg['HPARAM_SEARCH'][model_name][hparam_name]['RANGE'] is not None:
+            if cfg['HPARAM_SEARCH'][model_name][hparam_name]['TYPE'] == 'set':
+                dimensions.append(Categorical(categories=cfg['HPARAM_SEARCH'][model_name][hparam_name]['RANGE'],
+                                              name=hparam_name))
+            elif cfg['HPARAM_SEARCH'][model_name][hparam_name]['TYPE'] == 'int_uniform':
+                dimensions.append(Integer(low=cfg['HPARAM_SEARCH'][model_name][hparam_name]['RANGE'][0],
+                                          high=cfg['HPARAM_SEARCH'][model_name][hparam_name]['RANGE'][1],
+                                          prior='uniform', name=hparam_name))
+            elif cfg['HPARAM_SEARCH'][model_name][hparam_name]['TYPE'] == 'float_log':
+                dimensions.append(Real(low=cfg['HPARAM_SEARCH'][model_name][hparam_name]['RANGE'][0],
+                                       high=cfg['HPARAM_SEARCH'][model_name][hparam_name]['RANGE'][1],
+                                       prior='log-uniform', name=hparam_name))
+            elif cfg['HPARAM_SEARCH'][model_name][hparam_name]['TYPE'] == 'float_uniform':
+                dimensions.append(Real(low=cfg['HPARAM_SEARCH'][model_name][hparam_name]['RANGE'][0],
+                                       high=cfg['HPARAM_SEARCH'][model_name][hparam_name]['RANGE'][1],
+                                       prior='uniform', name=hparam_name))
+            default_params.append(cfg['HPARAMS'][model_name][hparam_name])
+            hparam_names.append(hparam_name)
+            results[hparam_name] = []
+    print("Hyperparameter list: {}".format(hparam_names))
+    init_results = results
+
+    def objective(vals):
+        hparams = dict(zip(hparam_names, vals))
+        for hparam in cfg['HPARAMS'][model_name]:
+            if hparam not in hparams:
+                hparams[hparam] = cfg['HPARAMS'][model_name][hparam]  # Add hyperparameters being held constant
+        print('HPARAM VALUES: ', hparams)
+        test_metrics, _ = train_single(hparams=hparams, save_weights=False, write_logs=False, save_partitions=False)
+        score = 1. - test_metrics['accuracy']
+        tf.keras.backend.clear_session()
+        save_hparam_search_results(init_results, score, objective_metric, hparam_names, hparams, model_name, cur_datetime)
+        return score   # We aim to minimize error
+
+    search_results = gp_minimize(func=objective, dimensions=dimensions, acq_func='EI',
+                                 n_calls=cfg['HPARAM_SEARCH']['N_TRIALS'], verbose=True)
+    print("Results of hyperparameter search: {}".format(search_results))
+    plot_bayesian_hparam_opt(model_name, hparam_names, search_results, save_fig=True)
+    return search_results
+
+
 def train_experiment(experiment='single_train', save_weights=False, write_logs=False):
     '''
     Run a training experiment
@@ -258,6 +347,8 @@ def train_experiment(experiment='single_train', save_weights=False, write_logs=F
     # Conduct the desired train experiment
     if experiment == 'single_train':
         train_single(save_weights=save_weights, write_logs=write_logs)
+    elif experiment == 'hparam_search':
+        bayesian_hparam_optimization()
     else:
         raise Exception("Invalid entry in TRAIN > EXPERIMENT_TYPE field of config.yml.")
     return
