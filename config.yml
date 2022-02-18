@@ -6,7 +6,7 @@ PATHS:
   MASKED_CLIPS_DIR: 'C:\Users\Bennet\DeepBreathe\data\masked_clips'
   TEST_FRAMES_TABLE: 'C:\Users\Bennet\DeepBreathe\data\masked_clips\partitions\20220212-113322\test_set_frames.csv'
   TEST_CLIPS_TABLE: 'C:\Users\Bennet\DeepBreathe\data\masked_clips\partitions\20220212-113322\test_set_clips.csv'
-  FRAME_PREDICTIONS: 'results/predictions/frame_predictions20220212-113322.csv'
+  FRAME_PREDICTIONS: 'results/predictions/frame_predictions20211126-181026.csv'
   EXPERIMENT_VISUALIZATIONS: 'img/experiments'
   MODEL_TO_LOAD: 'results/models/model20220212-113322-efficientnetb0.h5'
   HEATMAPS: 'img/heatmaps'
@@ -100,6 +100,11 @@ CLIP_PREDICTION:
   WINDOW_SIZE: 20
   CONTIGUITY_THRESHOLD: 20
   WINDOW_CERTAINTY: 0.2
+  EXPERIMENTS:
+    LONGEST_WINDOW_CERTAINTIES: [0.05, 0.40]
+    SLIDING_WINDOW_LENGTHS: [5, 60]
+    CONTIGUITY_THRESHOLD_RANGE: [5, 60]
+    CONTIGUITY_THRESHOLD_CLASS_THRESH: 0.5
 
 HPARAM_SEARCH:
   OBJECTIVE: 'accuracy'
