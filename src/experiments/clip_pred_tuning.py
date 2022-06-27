@@ -15,7 +15,7 @@ from src.visualization.visualization import plot_clip_pred_experiment
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
 
 
-def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_contiguity_thresh=5, max_contiguity_thresh=60):
+def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_contiguity_thresh=1, max_contiguity_thresh=50):
     '''
     Acquires a clip-wise accuracy score for a set of frame predictions across a range of contiguity thresholds.
     :frame_preds: DataFrame containing frame prediction probabilities
@@ -33,7 +33,8 @@ def explore_contiguity_threshold(frame_preds, class_thresh=0.5, min_contiguity_t
     clip_labels = clips_df['Class']
 
     accuracies = []
-    contiguity_thresholds = np.arange(min_contiguity_thresh, max_contiguity_thresh, 5)
+
+    contiguity_thresholds = np.arange(min_contiguity_thresh, max_contiguity_thresh, 1)
 
     # for each contiguity threshold, acquire an accuracy score
     for tau in contiguity_thresholds:
@@ -202,4 +203,10 @@ def full_experiment(frame_preds, experiment_cfg):
 if __name__ == '__main__':
     frame_preds = pd.read_csv(cfg['PATHS']['FRAME_PREDICTIONS'])
     # run an experiment on all clip prediction algorithms
-    full_experiment(frame_preds, cfg['CLIP_PREDICTION']['EXPERIMENTS'])
+    #full_experiment(frame_preds, cfg['CLIP_PREDICTION']['EXPERIMENTS'])
+    explore_contiguity_threshold(frame_preds,0.5, 15,35)
+    explore_contiguity_threshold(frame_preds, 0.55, 15, 35)
+    explore_contiguity_threshold(frame_preds, 0.45, 15, 35)
+    explore_contiguity_threshold(frame_preds, 0.40, 15, 35)
+    explore_contiguity_threshold(frame_preds, 0.60, 15, 35)
+

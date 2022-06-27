@@ -105,6 +105,7 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
         if clip_pred_method == 'majority_vote':
             clip_pred_class = majority_vote(pred_probs, class_thresh)
         elif clip_pred_method == 'contiguity_threshold':
+            print("Using Contiguity Threshold {} for Clip {}".format(cfg['CLIP_PREDICTION']['CONTIGUITY_THRESHOLD'], str(i)))
             contiguity_threshold = cfg['CLIP_PREDICTION']['CONTIGUITY_THRESHOLD']
             clip_pred_class = max_contiguous_pleural_preds(pred_probs, class_thresh, contiguity_threshold)
         elif clip_pred_method == 'max_sliding_window':
@@ -119,7 +120,7 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
         clip_pred_classes.append(clip_pred_class)         # Record predicted class for the clips
 
     if calculate_metrics:
-        clip_labels = clips_df['Class']
+        clip_labels = clips_df['class']
         metrics = compute_metrics(np.array(clip_labels), np.array(clip_pred_classes), all_pred_probs)
         json.dump(metrics, open(os.path.join(cfg['PATHS']['METRICS'], 'clips_' +
                                              datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json'), 'w'))
@@ -129,10 +130,9 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
     if all_pred_probs is not None:
         pred_df['Pred probs'] = all_pred_probs
     pred_df.insert(0, 'filename', clips_df['filename'])
-    pred_df.insert(1, 'Class', clips_df['Class'])
+    pred_df.insert(1, 'class', clips_df['class'])
     pred_df.to_csv(os.path.join(cfg['PATHS']['BATCH_PREDS'] + 'clip_predictions' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.csv'))
     return pred_df
-
 
 def avg_clip_prediction(pred_probs, class_thresh):
     '''
@@ -294,3 +294,16 @@ if __name__ == '__main__':
                             clip_pred_method=cfg['CLIP_PREDICTION']['CLIP_PREDICTION_METHOD'],
                             class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'], calculate_metrics=True)
     #compute_frame_predictions(cfg, frames_path, class_thresh=0.5, calculate_metrics=True)
+
+
+    # for i in range (0,9):
+    #
+    #     frames_path = 'C:/Users/Bennet/DeepBreathe/kfold_metrics/kfold20220224-093231_partitions/kfold20220224-093231/fold_{}_val_set'.format(str(i))
+    #     clips_path = 'C:/Users/Bennet/DeepBreathe/kfold_metrics/kfold20220224-093231_partitions/kfold20220224-093231fold_{}_val_clips.csv'.format(str(i))
+    #     df_frames = pd.read_csv(frames_path)
+    #     df_clips = df_frames.groupby('Clip').first().reset_index().drop('Frame Path', axis=1).rename(columns={'Clip': 'filename'})
+    #     df_clips.to_csv(os.path.join(clips_path), index=False)
+
+        # compute_clip_predictions(cfg, frames_path, clips_path,
+        #                          clip_pred_method='contiguity_threshold',
+        #                          class_thresh=cfg['CLIP_PREDICTION']['CLASSIFICATION_THRESHOLD'], calculate_metrics=True)

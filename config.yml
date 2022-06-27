@@ -1,14 +1,16 @@
 PATHS:
-  FRAMES_TABLE: 'C:\Users\Bennet\DeepBreathe\data\masked_clips/frames.csv'
-  FRAMES_DIR: 'C:\Users\Bennet\DeepBreathe\data\masked_clips/frames'
-  CLIPS_TABLE: 'C:\Users\Bennet\DeepBreathe\data\masked_clips/clips_table.csv'
-  PARTITIONS_DIR: 'C:\Users\Bennet\DeepBreathe\data\masked_clips/partitions'
-  MASKED_CLIPS_DIR: 'C:\Users\Bennet\DeepBreathe\data\masked_clips'
-  TEST_FRAMES_TABLE: 'C:\Users\Bennet\DeepBreathe\data\masked_clips\partitions\20220212-113322\test_set_frames.csv'
-  TEST_CLIPS_TABLE: 'C:\Users\Bennet\DeepBreathe\data\masked_clips\partitions\20220212-113322\test_set_clips.csv'
-  FRAME_PREDICTIONS: 'results/predictions/frame_predictions20211126-181026.csv'
+  FRAMES_TABLE: 'C:\Users\Bennet\DeepBreathe\data\internal_view_accuracy_val\frames.csv'
+  FRAMES_DIR: 'C:\Users\Bennet\DeepBreathe\data\internal_view_accuracy_val\frames'
+  CLIPS_TABLE: 'C:\Users\Bennet\DeepBreathe\data\internal_view_accuracy_val\clips_table.csv'
+  PARTITIONS_DIR: 'C:\Users\Bennet\DeepBreathe\data\internal_view_accuracy_val\partitions'
+  RAW_CLIPS_DIR: 'C:\Users\Bennet\DeepBreathe\data\internal_view_accuracy_val\raw_clips\'
+  MASKED_CLIPS_DIR: 'C:\Users\Bennet\DeepBreathe\data\internal_view_accuracy_val\masked_clips'
+  DATABASE_QUERY: 'C:\Users\Bennet\DeepBreathe\data\internal_view_accuracy_val\data_clips_internal_accuracy.csv'
+  TEST_FRAMES_TABLE: 'C:\Users\Bennet\DeepBreathe\data\internal_view_accuracy_val\frames.csv'
+  TEST_CLIPS_TABLE: 'C:\Users\Bennet\DeepBreathe\data\internal_view_accuracy_val\clips_table.csv'
+  FRAME_PREDICTIONS: 'results/metrics/frames_20220626-131504.json'
   EXPERIMENT_VISUALIZATIONS: 'img/experiments'
-  MODEL_TO_LOAD: 'results/models/model20220212-113322-efficientnetb0.h5'
+  MODEL_TO_LOAD: 'results/models/model20220212-163128-efficientnetb0-seed1_hackathon.h5'
   HEATMAPS: 'img/heatmaps'
   LOGS: 'results/logs/'
   IMAGES: 'results/figures/'
@@ -96,9 +98,9 @@ HPARAMS:
 
 CLIP_PREDICTION:
   CLASSIFICATION_THRESHOLD: 0.5
-  CLIP_PREDICTION_METHOD: 'longest_window'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshsold', 'longest_window'}
+  CLIP_PREDICTION_METHOD: 'contiguity_threshold'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshold', 'longest_window'}
   WINDOW_SIZE: 20
-  CONTIGUITY_THRESHOLD: 20
+  CONTIGUITY_THRESHOLD: 19
   WINDOW_CERTAINTY: 0.2
   EXPERIMENTS:
     LONGEST_WINDOW_CERTAINTIES: [0.05, 0.40]
@@ -118,7 +120,7 @@ HPARAM_SEARCH:
       RANGE: [0.0, 0.6]
     L2_LAMBDA:
       TYPE: 'float_log'
-      RANGE: [0.000000001, 0.00001]
+      RANGE: [0.00000000 Range 1, 0.00001]
     NODES_FC0:
       TYPE: 'set'
       RANGE: [16, 32, 64, 128]

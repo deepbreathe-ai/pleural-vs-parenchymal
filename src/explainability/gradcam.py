@@ -69,7 +69,7 @@ class GradCAMExplainer:
                 last_conv_layer = self.model.get_layer(self.last_conv_layer)
                 iterate = Model([self.model.inputs], [self.model.output, last_conv_layer.output])
                 model_out, last_conv_layer = iterate(x)
-                class_out = model_out[:, np.argmax(model_out[0])]
+                class_out = tf.math.maximum(1 - model_out[:, np.argmax(model_out[0])], model_out[:, np.argmax(model_out[0])])
                 grads = tape.gradient(class_out, last_conv_layer)
                 pooled_grads = tf.keras.backend.mean(grads, axis=(0, 1, 2))
 
