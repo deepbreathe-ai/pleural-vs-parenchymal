@@ -6,12 +6,22 @@ import wget
 
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
 
-def data_pull():
+def data_pull(fold=None):
     '''
     Pull raw clips from AWS database using a generated query in csv format
     '''
-    output_folder = cfg['PATHS']['RAW_CLIPS_DIR']
-    df = pd.read_csv(cfg['PATHS']['CLIPS_TABLE'])
+    if fold is not None:
+        output_folder = cfg['PATHS']['RAW_CLIPS_DIR'] + 'fold_{}/'.format(fold)
+    else:
+        output_folder = cfg['PATHS']['RAW_CLIPS_DIR']
+
+    if not os.path.isdir(output_folder):
+        os.mkdir(output_folder)
+
+    if fold is not None:
+        df = pd.read_csv('data/fold_' + str(fold) + '_clips_table.csv')
+    else:
+        df = pd.read_csv(cfg['PATHS']['CLIPS_TABLE'])
 
     print('Getting AWS links...')
 
@@ -36,3 +46,6 @@ def data_pull():
 
 if __name__ == '__main__':
     data_pull()
+
+    # for fold in range(10):
+    #     data_pull(fold=fold)
