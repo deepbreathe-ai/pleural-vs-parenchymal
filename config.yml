@@ -33,7 +33,7 @@ TRAIN:
   EPOCHS: 15
   PATIENCE: 5
   EXPERIMENT_TYPE: 'cross_validation'   # One of {'single_train', 'hparam_search', 'cross_validation'}
-  N_FOLDS: 3
+  N_FOLDS: 10
   DATA_AUG:
     ZOOM_RANGE: 0.2
     HORIZONTAL_FLIP: true
@@ -121,7 +121,7 @@ HPARAM_SEARCH:
       RANGE: [0.0, 0.6]
     L2_LAMBDA:
       TYPE: 'float_log'
-      RANGE: [0.00000000 Range 1, 0.00001]
+      RANGE: [0.000000001, 0.00001]
     NODES_FC0:
       TYPE: 'set'
       RANGE: [16, 32, 64, 128]
