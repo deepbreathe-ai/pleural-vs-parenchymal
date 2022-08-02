@@ -24,7 +24,7 @@ def create_ABline_dataframe(database_query):
 
     df['exam_id'] = df['exam_id'].astype(str)
     df['patient_id'] = df['patient_id'].astype(str)
-    df['vid_id'] = df['vid_id'].astype('Int64').astype(str)
+    df['vid_id'] = df['vid_id'].astype(str) 
 
     # Create filename
     df['filename'] = df['exam_id'] + "_" + df['patient_id'] + "_VID" + df['vid_id']
@@ -54,8 +54,24 @@ def create_ABline_dataframe(database_query):
 
     return df
 
+def create_fold_dataframe(clips_table_path,fold):
+    '''
+    Creates clips table for each cross-validation fold from the original clips table, and the partitions saved during training.
+    :clips_table_path: path to clips table of entire training set
+    :fold: cross-validation fold (0-9) of the clips table you'd like to build
+    '''
+    fold_df = pd.read_csv(cfg['PATHS']['PARTITIONS_DIR'] + 'fold_{}_val_set.csv'.format(fold))
+    clips_df = pd.read_csv(clips_table_path)
+    files = list(fold_df['Clip'].astype(str).unique())
+    fold_table_df = clips_df.loc[clips_df['filename'].isin(files)]
+    fold_table_df.to_csv('data/fold_' + str(fold) + '_clips_table.csv',index=False)
+    return fold_table_df
+
 
 # print(create_ABline_dataframe("parenchymal_clips.csv"))
 
 if __name__ == "__main__":
     create_ABline_dataframe(database_query)
+
+    # for fold in range(10):
+    #     create_fold_dataframe('data/train_query.csv',fold)
