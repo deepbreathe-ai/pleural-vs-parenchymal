@@ -6,3 +6,7 @@ scikit_learn==1.0
 opencv_python==4.2.0.34
 pyyaml
 tqdm
+wget==3.2
+scikit-image
+seaborn
+scikit-optimize==0.9.0
