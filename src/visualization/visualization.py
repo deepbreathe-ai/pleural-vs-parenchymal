@@ -11,6 +11,7 @@ import numpy as np
 import yaml
 from pandas.api.types import is_numeric_dtype
 from skopt.plots import plot_objective
+import matplotlib.patches as patches
 
 mpl.rcParams['figure.figsize'] = (12, 8)
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
@@ -82,7 +83,7 @@ def plot_roc(path_to_preds, kfold=False, base_fpr=np.linspace(0, 1, 1001), c='g'
              save_name=None):
     '''
     Plots the ROC curve for predictions on a dataset.
-    :param path to preds: Path to frame-level prediction probabilities. If kfold=True, this contains a list of paths to each fold's predictions.
+    :param path_to_preds: Path to frame-level prediction probabilities. If kfold=True, this contains a list of paths to each fold's predictions.
     :param kfold: If True, the average ROC curve across all folds will be plotted.
     :param base_fpr: fpr-vector for plotting
     :param c: Colour to plot the ROC curve with
@@ -262,6 +263,121 @@ def plot_fig5(hd_clip_preds, hd_frame_preds, kfold_clip_preds, kfold_frame_preds
         plt.savefig(cfg['PATHS']['IMAGES'] + save_name + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
 
     return fig5
+
+
+def plot_pleural_probability(frame_df, filename, patch_frame=None, window=17, contiguity_thresh=7,
+                             classification_thresh=0.7, fig=None, ax=None, tit=None, save_name=None):
+    '''
+    Plots the raw and smoothed predicted pleural probabilities as a function of the frame number for a given clip.
+    :param frame_df: dataframe containing frame-level prediction probabilities for at least one clip
+    :param filename: filename of the clip to plot
+    :patch_frame: If not None, a patch of width window will be drawn starting from this frame number.
+    If it's value exceeds the maximum allowable frame number (total frames - window), the patch will be applied at the end of the clip by default.
+    :param window: Width of the moving average window used to smooth the frame-level predictions.
+    :param contiguity_thresh: Contiguity threshold used in the clip-prediction algorithm. Will specify the x-tick interval.
+    :param classification_thresh: Classification threshold used in the clip-prediction algorithm.
+    :param fig: If not None, the fig object that the plot will be plotted in.
+    :param ax: If not None, the axis object that the plot will be plotted along.
+    :tit: If not None, is the title of the plot
+    :param save_name: If not None, the figure will be saved under this name.
+    '''
+
+    if 'filename' not in list(frame_df.columns):  # Get clip filename from frame path if not already done
+        frame_df['filename'] = frame_df.apply(lambda row: row['Frame Path'][:row['Frame Path'].rfind('_')], axis=1)
+
+    if ax is None or fig is None:  # Initialize figure if not already done
+        fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+
+    # Plot raw prediction probabilities
+    clip_files_df = frame_df.loc[frame_df['filename'] == filename]
+    x_raw = range(len(clip_files_df))
+    y_raw = clip_files_df['Pleural View Probability'].reset_index(drop=True)
+
+    # Get smoothed prediction probabilities
+    smoothed_probs = clip_files_df['Pleural View Probability'].rolling(window=window).mean().reset_index(drop=True)
+    y_smooth = smoothed_probs[window:]
+    x_smooth = np.arange(window / 2, window / 2 + len(y_smooth), 1)
+
+    # Plot probabilities
+    ax.plot(x_raw, y_raw, linewidth=1)
+    ax.plot(x_smooth, y_smooth, linewidth=2, color='k')
+
+    # Add red patch over a desired window of frames
+    if patch_frame is not None:
+        if patch_frame > len(clip_files_df)-window-1:  # if patch_frame exceeds allowable frames, default to end of clip
+            patch_frame = len(clip_files_df)-window-1
+        w0 = patch_frame
+        wind = y_raw[w0:w0 + window]
+        wm = min(wind)
+        wM = max(wind)
+        rect = patches.Rectangle((w0, 0), window, 1, linewidth=1, facecolor='k', alpha=0.1)
+        # Add the patch to the Axes
+        ax.add_patch(rect)
+        ax.scatter(window / 2 + w0, smoothed_probs[window + w0], s=50, c='r', zorder=3)
+        ax.plot(x_raw[w0:w0 + window + 1], y_raw[w0:w0 + window + 1], color='r', linewidth=1)  # range(w0,w0+17)
+
+    # Format plot
+    ax.set_xlabel('Frame Number', fontsize=16)
+    ax.set_ylabel('Pleural Prediction Probability', fontsize=16)
+    ax.axhline(y=classification_thresh, linestyle='-.', linewidth=1, color='dimgray')  # Plot classification threshold
+    ax.set_xticks(
+        np.arange(min(x_raw), max(x_raw) + 1, contiguity_thresh))  # Get xticks at contiguity threshold intervals
+    ax.grid(axis='x', linestyle='--', linewidth=1)
+    ax.tick_params(axis="x", labelsize=14)
+    ax.tick_params(axis="y", labelsize=14)
+    ax.set_ylim([0, 1])
+    ax.set_xlim([0, len(clip_files_df) - 1])
+    if tit is not None:
+        ax.set_title(tit, size=16, loc='left')
+
+    # Save
+    if save_name:
+        plt.savefig(cfg['PATHS']['IMAGES'] + save_name + '_prob-v-time' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+
+    return plt
+
+
+def plot_fig7(frame_df, clips, tick_mod=None, titles=None, save_name=None):
+    '''
+    Plots Figure 7 from the manuscript.
+    :param frame_df: Dataframe containing pleural prediction probabilities of all clips
+    :param clips: Ordered list of clip filenames to include (tp, tn, fp, fn)
+    :param tick_mod: If not None, list of integers, specifying how many x-ticks to label for each subplot. Defaults to every x-tick getting labelled.
+    :param titles: If not None, list of titles for each subplot
+    :param save_name: If not None, the figure will be saved under this name.
+    '''
+
+    frame_df['filename'] = frame_df.apply(lambda row: row['Frame Path'][:row['Frame Path'].rfind('_')],
+                                          axis=1)  # Get clip filename from frame path
+
+    fig7, axs = plt.subplots(2, 2, figsize=(14, 10))  # Initialize plot
+
+    for i, filename in enumerate(clips):  # Plot curve for each clip using plot_pleural_probability
+
+        ax = axs.flat[i]
+        tit = None
+        if titles is not None:
+            tit = titles[i]
+
+        plot_pleural_probability(frame_df, filename, ax=ax, fig=fig7, tit=tit)
+
+        count = 0
+        for label in ax.xaxis.get_ticklabels():  # Only label every tick_mod[i] x-ticks
+            if count % tick_mod[i] != 0:
+                label.set_visible(False)
+            count += 1
+
+    plt.subplots_adjust(left=0.1,
+                        bottom=0.1,
+                        right=0.9,
+                        top=0.9,
+                        wspace=0.3,
+                        hspace=0.3)
+
+    if save_name:
+        plt.savefig(cfg['PATHS']['IMAGES'] + save_name + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+
+    return fig7
 
 
 def visualize_heatmap(orig_img, heatmap, img_filename, label, prob, class_names, dir_path=None):
