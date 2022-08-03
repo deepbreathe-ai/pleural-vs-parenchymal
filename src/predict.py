@@ -114,7 +114,7 @@ def compute_clip_predictions(cfg, frames_table_path, clips_table_path, class_thr
         elif clip_pred_method == 'contiguity_threshold':
             print("Using Contiguity Threshold {} for Clip {}".format(cfg['CLIP_PREDICTION']['CONTIGUITY_THRESHOLD'], str(i)))
             contiguity_threshold = cfg['CLIP_PREDICTION']['CONTIGUITY_THRESHOLD']
-            clip_pred_class = max_contiguous_pleural_preds(pred_probs, class_thresh, contiguity_threshold)
+            clip_pred_class = contiguous_pleural_preds(pred_probs, class_thresh, contiguity_threshold)
         elif clip_pred_method == 'max_sliding_window':
             window_size = cfg['CLIP_PREDICTION']['WINDOW_SIZE']
             clip_pred_class = max_sliding_window(pred_probs, window_size)

@@ -1,12 +1,12 @@
 import datetime
 import os
 import io
-
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import tensorflow as tf
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, roc_curve
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 import numpy as np
 import yaml
 from pandas.api.types import is_numeric_dtype
@@ -30,79 +30,239 @@ def plot_to_tensor():
     image_tensor = tf.expand_dims(image_tensor, 0)     # Add the batch dimension
     return image_tensor
 
-def plot_roc(labels, predictions, class_name_list, dir_path=None, title=None):
-    '''
-    Plots the ROC curve for predictions on a dataset
-    :param labels: Ground truth labels
-    :param predictions: Model predictions corresponding to the labels
-    :param class_name_list: Ordered list of class names
-    :param dir_path: Directory in which to save image
-    '''
-    plt.clf()
-    # for class_id in range(len(class_name_list)):
-    #     class_name = class_name_list[class_id]
-    #     single_class_preds = predictions[:, class_id]    # Only care about one class
-    #     single_class_labels = (np.array(labels) == class_id) * 1.0
-    fp, tp, _ = roc_curve(labels, predictions)  # Get values for true positive and true negative
-    plt.plot(100*fp, 100*tp, linewidth=2)   # Plot the ROC curve
 
-    if title is None:
-        plt.title('ROC curves for test set')
+def get_roc_data(path_to_preds, base_fpr=np.linspace(0, 1, 1001)):
+    '''
+    Computes the true positive rate for plotting an ROC curve and the curves corresponding AUC.
+    :param path_to_preds: path to frame-level prediction probabilities.
+    :param base_fpr: fpr-vector that will be used for plotting.
+    '''
+    frame_df = pd.read_csv(path_to_preds)
+    b_fpr, b_tpr, _ = roc_curve(frame_df['Class'], frame_df['Pleural View Probability'])
+    b_tpr_itpls = np.interp(base_fpr, b_fpr, b_tpr)  # Get tpr for plotting
+    aucs = auc(base_fpr, b_tpr_itpls)  # Compute AUC
+
+    return b_tpr_itpls, aucs
+
+
+def get_roc_data_kfold(paths_to_fold_preds, base_fpr=np.linspace(0, 1, 1001)):
+    '''
+    Computes the necessary information required for plotting the average ROC curve for a kfold cross validation experiment.
+    :paths_to_fold_preds: list of paths to the prediction probabilities for each fold
+    :param base_fpr: fpr-vector that will be used for plotting.
+    :return b_mean_tprs: average true positive rate across all k folds
+    :return b_tprs_lower: lower bound for the range of ROC curves to be plotted (average - std)
+    :return b_tprs_upper: upper bound for the range of ROC curves to be plotted (average + std)
+    :return avg_b_auc: mean AUC across all k folds
+    :return std_b_auc: standard deviation of the AUC across all k folds
+    '''
+
+    auck, b_tpr_itplsk = [], []
+    cms = []
+
+    # Compute true positive rate and AUC for each fols
+    for path in paths_to_fold_preds:
+        b_tpr_itpls, aucs = get_roc_data(path, base_fpr=base_fpr)
+        b_tpr_itplsk.append(b_tpr_itpls)
+        auck.append(aucs)
+
+    b_tpr_itplsk = np.array(b_tpr_itplsk)
+    b_mean_tprs = b_tpr_itplsk.mean(axis=0)  # Mean tpr across all folds
+    b_std = b_tpr_itplsk.std(axis=0)  # Standard deviation of the tpr across all folds
+    b_tprs_upper = np.minimum(b_mean_tprs + b_std, 1)  # Lower bound for plotting
+    b_tprs_lower = b_mean_tprs - b_std  # Upper bound for plotting
+
+    avg_b_auc = np.mean(np.array(auck))  # Mean AUC across all folds
+    std_b_auc = np.std(np.array(auck))  # Standard deviation of the AUC across all folds
+
+    return b_mean_tprs, b_tprs_lower, b_tprs_upper, avg_b_auc, std_b_auc
+
+
+def plot_roc(path_to_preds, kfold=False, base_fpr=np.linspace(0, 1, 1001), c='g', tit=None, fig=None, ax=None,
+             save_name=None):
+    '''
+    Plots the ROC curve for predictions on a dataset.
+    :param path to preds: Path to frame-level prediction probabilities. If kfold=True, this contains a list of paths to each fold's predictions.
+    :param kfold: If True, the average ROC curve across all folds will be plotted.
+    :param base_fpr: fpr-vector for plotting
+    :param c: Colour to plot the ROC curve with
+    :param tit: If not None, the title of plot
+    :param fig: If ROC curve will be a subplot, set to fig object of entire plot.
+    :param ax: If ROC curve will be a subplot, set this equal to its corresponding axis.
+    :param save_name: If not None, the ROC curve will be saved under this name.
+    '''
+    if kfold:
+        b_tpr_itpls, b_tprs_lower, b_tprs_upper, avg_b_auc, std_b_auc = get_roc_data_kfold(path_to_preds)
     else:
-        plt.title(title)
-    plt.xlabel('False positives [%]')
-    plt.ylabel('True positives [%]')
-    plt.xlim([-5,105])
-    plt.ylim([-5,105])
-    plt.grid(True)
-    plt.legend()
-    ax = plt.gca()
-    ax.set_aspect('equal')
-    if dir_path is not None:
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-        plt.savefig(dir_path + 'ROC_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
-    return plt
+        b_tpr_itpls, aucs = get_roc_data(path_to_preds)
 
-def plot_confusion_matrix(labels, predictions, class_name_list, dir_path=None, title=None):
-    '''
-    Plot a confusion matrix for the ground truth labels and corresponding model predictions for a particular class.
-    :param labels: Ground truth labels
-    :param predictions: Model predictions
-    :param class_name_list: Ordered list of class names
-    :param dir_path: Directory in which to save image
-    '''
-    plt.clf()
-    #predictions = list(np.argmax(predictions, axis=1))
-    predictions = np.round(predictions)
-    ax = plt.subplot()
-    cm = confusion_matrix(list(labels), predictions)  # Determine confusion matrix
-    im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)  # Plot confusion matrix
-    ax.figure.colorbar(im, ax=ax)
-    ax.set(yticklabels=class_name_list, xticklabels=class_name_list)
-    ax.xaxis.set_major_locator(mpl.ticker.IndexLocator(base=1, offset=0.5))
-    ax.yaxis.set_major_locator(mpl.ticker.IndexLocator(base=1, offset=0.5))
+    if ax is None or fig is None:
+        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
 
-    # Print the confusion matrix numbers in the center of each cell of the plot
-    thresh = cm.max() / 2
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            plt.text(j, i, cm[i, j], horizontalalignment="center", color="white" if cm[i, j] > thresh else "black")
-
-    # Set plot's title and axis names
-    if title is None:
-        plt.title('Confusion matrix for test set')
+    ax.plot(base_fpr, b_tpr_itpls, c)
+    ax.plot([0, 1], [0, 1], color='gray', linestyle='dashed', linewidth=2)
+    if kfold:
+        ax.fill_between(base_fpr, b_tprs_lower, b_tprs_upper, color=c, alpha=0.2)
+        ax.legend(["ROC (AUC = {:.3f} \u00B1 {:.3f})".format(avg_b_auc, std_b_auc), "Naive classifier"],
+                  loc='lower right', fontsize=14)
     else:
-        plt.title(title)
-    plt.ylabel('Actual label')
-    plt.xlabel('Predicted label')
+        ax.legend(["ROC (AUC = {:.3f})".format(aucs), "Naive classifier"], loc='lower right', fontsize=14)
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.0])
+    ax.set_xticks(np.arange(0.0, 1.1, 0.1), minor=False)
+    ax.set_xticks(np.arange(0.0, 1.05, 0.05), minor=True)
+    ax.set_yticks(np.arange(0.0, 1.1, 0.1), minor=False)
+    ax.set_yticks(np.arange(0.0, 1.05, 0.05), minor=True)
+    ax.set_ylabel('True Positive Rate', fontsize=16)
+    ax.set_xlabel('False Positive Rate', fontsize=16)
+    ax.set_autoscale_on(False)
+    ax.tick_params(axis="x", labelsize=14)
+    ax.tick_params(axis="y", labelsize=14)
 
-    # Save the image
-    if dir_path is not None:
-        plt.savefig(dir_path + 'CM_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+    if tit is not None:
+        ax.set_title(tit, fontweight='bold', size=16, loc='left')
 
-    print('Confusion matrix: ', cm)    # Print the confusion matrix
-    return plt
+    if save_name is not None:
+        plt.savefig(cfg['PATHS']['IMAGES'] + save_name + '_ROC' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+
+
+def get_confusion_matrix_data(path_to_preds, frames=False, get_labels=True):
+    '''
+    Computes the confusion matrix for ground truth labels and corresponding model predictions fo a given dataset.
+    :path to preds: path to clip or frame-level predictions
+    :frames: If True, the predictions are at the frame-level (i.e. probabilities)
+    :get_labels: If True, an array of value (percent) labels are also returned, to be used for plotting
+    '''
+    df = pd.read_csv(path_to_preds) # Load predictions
+
+    if frames:     # Compute frame-level class prediction
+        df['Pred Class'] = df.apply(lambda row: 1 if row['Pleural View Probability'] >= 0.5 else 0, axis=1)
+
+    cm = np.vstack(confusion_matrix(df['Class'], df['Pred Class']).tolist())     # Compute confusion matrix
+
+    if get_labels: # Create label array for plotting
+        vals = ["{:,.0f}".format(f) for f in cm.flatten()]
+        percents = ["{0:.1%}".format(f) for f in cm.flatten() / np.sum(cm)]
+        labels = [f"{m}\n\n{p}" for m, p, in zip(vals, percents)]
+        labels = np.asarray(labels).reshape(2, 2)
+        return cm, labels
+    else:
+        return cm
+
+
+def get_confusion_matrix_data_kfold(paths_to_fold_preds, frames=False):
+    '''
+    Computes the average confusion matrix for a kfold cross validation experiment.
+    :paths_to_fold_preds: list of paths to clip or frame-level predictions for each fold
+    :frames: If True, the predictions are at the frame-level (i.e. probabilities)
+    :return mean_cm: Average confusion matrix across all folds
+    :return std_cm: Standard deviation of the confusion matrix across all folds
+    :return labels: Array of mean +/- std labels for plotting
+    '''
+
+    all_cm = []
+    for path in paths_to_fold_preds: # Compute confusion matrices for each fold, storing them in all_cm
+        all_cm.append(np.vstack(get_confusion_matrix_data(path, frames=frames, get_labels=False)))
+    mean_cm = np.mean(all_cm, axis=0).astype(int) # Mean confusion matrix across folds
+    std_cm = np.std(all_cm, axis=0).astype(int) # Standard deviation confusion matrix across folds
+
+    # Get labels for plotting
+    group_means = ["{:,.0f}".format(f) for f in mean_cm.flatten()]
+    group_stds = ["{:,.0f}".format(s) for s in std_cm.flatten()]
+    group_mean_percent = ["{0:.1%}".format(f) for f in mean_cm.flatten() / np.sum(mean_cm)]
+    group_std_percent = ["{0:.1%}".format(s) for s in std_cm.flatten() / np.sum(mean_cm)]
+    labels = [f"{m} \u00B1 {s}\n\n{mp} \u00B1 {sp}" for m, s, mp, sp in
+              zip(group_means, group_stds, group_mean_percent, group_std_percent)]
+    labels = np.asarray(labels).reshape(2, 2)
+
+    return mean_cm, std_cm, labels
+
+
+def plot_confusion_matrix(path_to_preds, frames=False, kfold=False, categories=['Parenchymal', 'Pleural'], c="Blues",
+                          tit=None, fig=None, ax=None, save_name=None):
+    '''
+    Plot a confusion matrix for the ground truth labels and corresponding model predictions.
+    :param path to preds: Path to clip or frame-level predictions. If kfold=True, this contains a list of paths to each fold's predictions.
+    :param frames: If True, the predictions are at the frame-level (i.e. probabilities)
+    :param kfold: If True, the average confusion matrix across all folds will be plotted.
+    :param categories: Ordered list of class names (ith element corresponds to the ith class)
+    :param c: Colormap for plotting
+    :param tit: If not None, title of plot
+    :param fig: If CM will be a subplot, set to fig object of entire plot.
+    :param ax: If CM will be a subplot, set this equal to its corresponding axis.
+    :param save_name: If not None, the confusion matrix will be saved under this name.
+    '''
+
+    if kfold:
+        cm, cm_std, labels = get_confusion_matrix_data_kfold(path_to_preds, frames=frames)
+    else:
+        cm, labels = get_confusion_matrix_data(path_to_preds, frames=frames)
+
+    if ax is None or fig is None:
+        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+
+    cm_plot = sns.heatmap(cm, annot=labels, fmt="", cmap=c, xticklabels=categories, yticklabels=categories,
+                          annot_kws={"size": 14}, ax=ax)
+    cm_plot.set_xticklabels(cm_plot.get_xmajorticklabels(), fontsize=12)
+    cm_plot.set_yticklabels(cm_plot.get_ymajorticklabels(), fontsize=12, va='center')
+    cbar = cm_plot.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=10)
+    cm_plot.set_ylabel('True class', fontsize=16)
+    if frames:
+        cm_plot.set_xlabel('Predicted (frame-level) class', fontsize=16)
+    else:
+        cm_plot.set_xlabel('Predicted (clip-level) class', fontsize=16)
+    if tit is not None:
+        cm_plot.set_title(tit, fontweight='bold', size=16, loc='left')
+
+    if save_name is not None:
+        plt.savefig(cfg['PATHS']['IMAGES'] + save_name + '_CM' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+
+    return cm_plot, cm
+
+
+def plot_fig5(hd_clip_preds, hd_frame_preds, kfold_clip_preds, kfold_frame_preds, save_name=None):
+    '''
+    Plots Figure 5 from the manuscript.
+    :param hd_clip_preds: path to clip-level predictions on the holdout set
+    :param hd_frame_preds: path to frame-level predictions on the holdout set
+    :param kfold_clip_preds: list of paths to clip-level predictions on each fold of the validation set
+    :param kfold_frame_preds: list of paths to frame-level predictions on each fold of the validation set
+    :param save_name: If not None, the Figure will be saved under this name.
+    '''
+    fig5, axs = plt.subplots(3, 2, figsize=(14, 16))
+
+    # kfold roc
+    k_roc = plot_roc(kfold_frame_preds, fig=fig5, ax=axs[0, 0], kfold=True, tit="(A)")
+
+    # holdout roc
+    hd_roc = plot_roc(hd_frame_preds, fig=fig5, ax=axs[0, 1], tit="(B)")
+
+    # kfold frame cm
+    k_fr = plot_confusion_matrix(kfold_frame_preds, frames=True, kfold=True, c="Greens", fig=fig5, ax=axs[1, 0],
+                                 tit="(C)")
+
+    # holdout frame cm
+    hd_fr = plot_confusion_matrix(hd_frame_preds, frames=True, c="Greens", fig=fig5, ax=axs[1, 1], tit="(D)")
+
+    # kfold clip cm
+    k_cl = plot_confusion_matrix(kfold_clip_preds, kfold=True, c="Greens", fig=fig5, ax=axs[2, 0], tit="(E)")
+
+    # holdout clip cm
+    hd_cl = plot_confusion_matrix(hd_clip_preds, fig=fig5, ax=axs[2, 1], tit="(F)")
+
+    plt.subplots_adjust(left=0.1,
+                        bottom=0.1,
+                        right=0.9,
+                        top=0.9,
+                        wspace=0.4,
+                        hspace=0.4)
+
+    if save_name is not None:
+        plt.savefig(cfg['PATHS']['IMAGES'] + save_name + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
+
+    return fig5
+
 
 def visualize_heatmap(orig_img, heatmap, img_filename, label, prob, class_names, dir_path=None):
     '''
@@ -141,11 +301,11 @@ def visualize_heatmap(orig_img, heatmap, img_filename, label, prob, class_names,
 def plot_clip_pred_threshold_experiment_old(metrics_df, var_col, metrics_to_plot=None,
                                         ax=None, im_path=None, title=None, x_label=None):
     '''
-    Visualizes the Plot classification metrics for clip predictions over various B-line count thresholds.
+    Visualizes the Plot classification metrics for clip predictions over various pleural view count thresholds.
     :param metrics_df: DataFrame containing classification metrics for different. The first column should be the
-                       various B-line thresholds and the rest are classification metrics
-    :min_threshold: Minimum B-line threshold
-    :max_threshold: Maximum B-line threshold
+                       various contiguity thresholds and the rest are classification metrics
+    :min_threshold: Minimum contiguity threshold
+    :max_threshold: Maximum contiguity threshold
     :thresh_col: Column of DataFrame corresponding to threshold variable
     :class_thresh: Classification threshold
     :metrics_to_plot: List of metrics to include on the plot
@@ -205,9 +365,9 @@ def plot_clip_pred_experiment(metrics_df, var_col, metrics_to_plot=None,
                                         im_path=None, title=None, x_label=None,  y_label=None,
                                         model_name = None, experiment_type = None):
     '''
-    Visualizes the Plot classification metrics for clip predictions over various B-line count thresholds.
+    Visualizes the Plot classification metrics for clip predictions over various contiguity thresholds.
     :param metrics_df: DataFrame containing classification metrics for different. The first column should be the
-                       various B-line thresholds and the rest are classification metrics
+                       various contiguity thresholds and the rest are classification metrics
     :var_col: Column of DataFrame corresponding to variable
     :metrics_to_plot: List of metrics to include on the plot
     :im_path: Path in which to save image
