@@ -12,6 +12,7 @@ import yaml
 from pandas.api.types import is_numeric_dtype
 from skopt.plots import plot_objective
 import matplotlib.patches as patches
+import math
 
 mpl.rcParams['figure.figsize'] = (12, 8)
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
@@ -337,20 +338,21 @@ def plot_pleural_probability(frame_df, filename, patch_frame=None, window=17, co
     return plt
 
 
-def plot_fig7(frame_df, clips, tick_mod=None, titles=None, save_name=None):
+def plot_multiple_probability_time_plots(frame_df, clips, tick_mod=None, titles=None, save_name=None, figsize=(14,10)):
     '''
-    Plots Figure 7 from the manuscript.
+    Plots multiple probability-time plots in one Figure as multiple subplots. See Figure 7 and A2 from the manuscript for an example.
     :param frame_df: Dataframe containing pleural prediction probabilities of all clips
     :param clips: Ordered list of clip filenames to include (tp, tn, fp, fn)
     :param tick_mod: If not None, list of integers, specifying how many x-ticks to label for each subplot. Defaults to every x-tick getting labelled.
     :param titles: If not None, list of titles for each subplot
     :param save_name: If not None, the figure will be saved under this name.
+    :param figsize: Size of the figure.
     '''
 
     frame_df['filename'] = frame_df.apply(lambda row: row['Frame Path'][:row['Frame Path'].rfind('_')],
                                           axis=1)  # Get clip filename from frame path
 
-    fig7, axs = plt.subplots(2, 2, figsize=(14, 10))  # Initialize plot
+    fig, axs = plt.subplots(math.ceil(len(clips)/2), 2, figsize=figsize)  # Initialize plot
 
     for i, filename in enumerate(clips):  # Plot curve for each clip using plot_pleural_probability
 
@@ -359,7 +361,7 @@ def plot_fig7(frame_df, clips, tick_mod=None, titles=None, save_name=None):
         if titles is not None:
             tit = titles[i]
 
-        plot_pleural_probability(frame_df, filename, ax=ax, fig=fig7, tit=tit)
+        plot_pleural_probability(frame_df, filename, ax=ax, fig=fig, tit=tit)
 
         count = 0
         for label in ax.xaxis.get_ticklabels():  # Only label every tick_mod[i] x-ticks
@@ -377,7 +379,7 @@ def plot_fig7(frame_df, clips, tick_mod=None, titles=None, save_name=None):
     if save_name:
         plt.savefig(cfg['PATHS']['IMAGES'] + save_name + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.png')
 
-    return fig7
+    return fig
 
 
 def visualize_heatmap(orig_img, heatmap, img_filename, label, prob, class_names, dir_path=None):
