@@ -358,11 +358,81 @@ def pleural_clip_prediction_parameter_experiment(frame_preds_path,min_thresholds
                 metrics_df = pd.concat([metrics_df, new_metrics],axis=0)
     # Save grid-search metrics
     if fold is not None:
-        metrics_df.to_csv(cfg['PATHS']['EXPERIMENTS'] + 'pleural_contiguity_thresholds_fold{}_new2.csv'.format(fold),index=False)
+        metrics_df.to_csv(cfg['PATHS']['EXPERIMENTS'] + 'pleural_contiguity_thresholds_fold{}.csv'.format(fold),index=False)
     else:
         metrics_df.to_csv(cfg['PATHS']['EXPERIMENTS'] + 'pleural_contiguity_thresholds_holdout.csv',index=False)
     return metrics_df
 
+
+def summarize_pleural_clip_prediction_parameter_experiment_results(save_all=None,save_best=None):
+    '''
+    Creates a single table summarizing the results of the pleural_clip_prediction_parameter_experiment across all 10 folds
+    :param save_all: If not None, the summary table is saved as a csv under this name
+    :param save_best: If not None, the row(s) with the highest mean accuracy are saved as a csv under this name
+    '''
+
+    # Combine metrics across all folds into a single dataframe
+    df = pd.read_csv(cfg['PATHS']['EXPERIMENTS'] + 'pleural_contiguity_thresholds_fold0.csv')
+    df.drop('fold', axis=1, inplace=True)
+
+    for fold in range(1, 10):
+        path_to_df = cfg['PATHS']['EXPERIMENTS'] + 'pleural_contiguity_thresholds_fold{}.csv'.format(fold)
+        df_to_merge = pd.read_csv(path_to_df)
+        df_to_merge.drop('fold', axis=1, inplace=True)
+        df = df.merge(df_to_merge,
+                      on=['Contiguity Threshold', 'Classification Threshold', 'Moving Average Window'],
+                      how='outer',
+                      suffixes=['', '_{}'.format(fold + 1)])
+    df.rename(columns={'confusion_matrix': 'confusion_matrix_1', 'precision': 'precision_1',
+                       'recall': 'recall_1', 'f1': 'f1_1', 'accuracy': 'accuracy_1','PPV':'PPV_1', 'NPV':'NPV_1'}, inplace=True)
+    df.dropna(inplace=True)
+
+    # Average metrics
+    df['mean_acc'] = df[['accuracy_1', 'accuracy_2', 'accuracy_3', 'accuracy_4', 'accuracy_5',
+                         'accuracy_6', 'accuracy_7', 'accuracy_8', 'accuracy_9', 'accuracy_10']].mean(axis=1)
+
+    df['mean_f1'] = df[['f1_1', 'f1_2', 'f1_3', 'f1_4', 'f1_5',
+                        'f1_6', 'f1_7', 'f1_8', 'f1_9', 'f1_10']].mean(axis=1)
+
+    df['mean_precision'] = df[['precision_1', 'precision_2', 'precision_3', 'precision_4', 'precision_5',
+                               'precision_6', 'precision_7', 'precision_8', 'precision_9', 'precision_10']].mean(axis=1)
+
+    df['mean_recall'] = df[['recall_1', 'recall_2', 'recall_3', 'recall_4', 'recall_5',
+                            'recall_6', 'recall_7', 'recall_8', 'recall_9', 'recall_10']].mean(axis=1)
+
+    df['mean_PPV'] = df[['PPV_1', 'PPV_2', 'PPV_3', 'PPV_4', 'PPV_5',
+                         'PPV_6', 'PPV_7', 'PPV_8', 'PPV_9', 'PPV_10']].mean(axis=1)
+
+    df['mean_NPV'] = df[['NPV_1', 'NPV_2', 'NPV_3', 'NPV_4', 'NPV_5',
+                         'NPV_6', 'NPV_7', 'NPV_8', 'NPV_9', 'NPV_10']].mean(axis=1)
+
+    # Metric standard deviations
+    df['std_acc'] = df[['accuracy_1', 'accuracy_2', 'accuracy_3', 'accuracy_4', 'accuracy_5',
+                        'accuracy_6', 'accuracy_7', 'accuracy_8', 'accuracy_9', 'accuracy_10']].std(axis=1)
+
+    df['std_recall'] = df[['recall_1', 'recall_2', 'recall_3', 'recall_4', 'recall_5',
+                           'recall_6', 'recall_7', 'recall_8', 'recall_9', 'recall_10']].std(axis=1)
+
+    df['std_precision'] = df[['precision_1', 'precision_2', 'precision_3', 'precision_4',
+                              'precision_5', 'precision_6', 'precision_7', 'precision_8',
+                              'precision_9', 'precision_10']].std(axis=1)
+
+    df['std_PPV'] = df[['PPV_1', 'PPV_2', 'PPV_3', 'PPV_4', 'PPV_5',
+                        'PPV_6', 'PPV_7', 'PPV_8', 'PPV_9', 'PPV_10']].std(axis=1)
+
+    df['std_NPV'] = df[['NPV_1', 'NPV_2', 'NPV_3', 'NPV_4', 'NPV_5',
+                        'NPV_6', 'NPV_7', 'NPV_8', 'NPV_9', 'NPV_10']].std(axis=1)
+
+    if save_all is not None:
+        df.to_csv(cfg['PATHS']['EXPERIMENTS'] + 'pleural_clip_prediction_parameter_experiment_summary.csv',index=False)
+
+    best_df = df[df['mean_acc'] == df['mean_acc'].max()]
+
+    if save_best is not None:
+        best_df.to_csv(cfg['PATHS']['EXPERIMENTS'] + 'optimal_pleural_clip_prediction_parameter_set.csv')
+
+
+    return df, best_df
 
 def max_contiguous_pleural_preds_from_series(pred_series,class_thresh=0.5):
     '''
