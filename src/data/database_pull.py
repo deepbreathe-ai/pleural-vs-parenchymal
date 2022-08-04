@@ -38,7 +38,7 @@ def data_pull(fold=None):
         filename = link[firstpos+1:lastpos]
         if "VID" not in filename:
             print(filename)
-        wget.download(link, output_folder + filename)
+        wget.download(link, os.path.join(output_folder, filename))
 
     print('Fetched clips successfully!')
 
@@ -47,5 +47,3 @@ def data_pull(fold=None):
 if __name__ == '__main__':
     data_pull()
 
-    # for fold in range(10):
-    #     data_pull(fold=fold)

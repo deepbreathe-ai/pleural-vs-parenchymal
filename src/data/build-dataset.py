@@ -19,7 +19,7 @@ def mp4_to_images(mp4_path,fold=None):
     '''
     Converts masked ultrasound mp4 video to a series of images and saves the images in the same directory.
     :param mp4_path: File name of the mp4 file to convert to series of images.
-    :param fold: If not None, cross-validation fold (0-9) the data correponds to
+    :param fold: If not None, this is the integer cross-validation fold (0-9) the data correponds to
     '''
     vc = cv2.VideoCapture(mp4_path)
     vid_dir, mp4_filename = os.path.split(mp4_path)      # Get folder and filename of mp4 file respectively
@@ -47,7 +47,7 @@ def create_image_dataset(query_df_path,fold=None):
     '''
     Create a dataset of frames, including their patient ID and class
     :param query_df_path: File name of the CSV file containing the database query results for clips
-    :param fold: If not None, this is the Cross-validation fold (0-9) the dataset you're building corresponds to
+    :param fold: If not None, this is the integer Cross-validation fold (0-9) the dataset you're building corresponds to
     '''
 
     query_df = pd.read_csv(query_df_path)
@@ -70,7 +70,7 @@ def create_image_dataset(query_df_path,fold=None):
 
 
 if __name__=='__main__':
-    for fold in range(10):
+    for fold in range(cfg['TRAIN']['N_FOLDS']):
          print('Fold: {}'.format(fold))
          create_image_dataset('data/fold_{}_clips_table.csv'.format(fold),fold=fold)
 
