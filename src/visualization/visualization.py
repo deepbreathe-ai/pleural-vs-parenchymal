@@ -136,11 +136,13 @@ def get_confusion_matrix_data(path_to_preds, frames=False, get_labels=True):
     :get_labels: If True, an array of value (percent) labels are also returned, to be used for plotting
     '''
     df = pd.read_csv(path_to_preds) # Load predictions
+    class_col_name = 'class'
 
     if frames:     # Compute frame-level class prediction
         df['Pred Class'] = df.apply(lambda row: 1 if row['Pleural View Probability'] >= 0.5 else 0, axis=1)
+        class_col_name = 'Class'
 
-    cm = np.vstack(confusion_matrix(df['Class'], df['Pred Class']).tolist())     # Compute confusion matrix
+    cm = np.vstack(confusion_matrix(df[class_col_name], df['Pred Class']).tolist())     # Compute confusion matrix
 
     if get_labels: # Create label array for plotting
         vals = ["{:,.0f}".format(f) for f in cm.flatten()]
