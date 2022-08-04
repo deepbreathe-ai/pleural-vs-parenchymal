@@ -35,10 +35,7 @@ def mp4_to_images(mp4_path,fold=None):
             break   # End of frames reached
         image_path = mp4_filename + '_' + str(idx) + '.jpg'
         image_paths.append(image_path)
-        if fold is not None:
-            cv2.imwrite(cfg['PATHS']['FRAMES_DIR'] + 'fold{}/'.format(fold) + image_path, frame) # Save all the images out
-        else:
-            cv2.imwrite(cfg['PATHS']['FRAMES_DIR'] + '/' + image_path, frame) # Save all the images out
+        cv2.imwrite(cfg['PATHS']['FRAMES_DIR'] + ('/' if fold is None else 'fold{}/'.format(fold)) + image_path, frame) # Save all the images out
         idx += 1
     return image_paths
 
