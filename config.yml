@@ -43,6 +43,7 @@ TRAIN:
     ROTATION_RANGE: 0.125   # Fraction of 2*pi
     BRIGHTNESS_RANGE: 0.2
     CONTRAST_RANGE: 0.1
+  MEMORY_LIMIT: 1228
 
 HPARAMS:
   MOBILENETV2:
@@ -98,16 +99,11 @@ HPARAMS:
 
 CLIP_PREDICTION:
   CLASSIFICATION_THRESHOLD: 0.7
-  CLIP_PREDICTION_METHOD: 'contiguity_threshold_with_smoothing'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshold', 'longest_window'}
+  CLIP_PREDICTION_METHOD: 'contiguity_threshold_with_smoothing'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshold', 'contiguity_threshold_with_smoothing', 'longest_window'}
   WINDOW_SIZE: 20
-  CONTIGUITY_THRESHOLD: 7
-  SMOOTHING_WINDOW: 17
+  CONTIGUITY_THRESHOLD: 7 # Number of consecutive pleural frames to predict pleural
+  SMOOTHING_WINDOW: 17 # Width of the moving average window used to smooth prediction probabilities
   WINDOW_CERTAINTY: 0.2
-  EXPERIMENTS:
-    LONGEST_WINDOW_CERTAINTIES: [0.05, 0.40]
-    SLIDING_WINDOW_LENGTHS: [5, 60]
-    CONTIGUITY_THRESHOLD_RANGE: [5, 60]
-    CONTIGUITY_THRESHOLD_CLASS_THRESH: 0.5
 
 HPARAM_SEARCH:
   OBJECTIVE: 'accuracy'

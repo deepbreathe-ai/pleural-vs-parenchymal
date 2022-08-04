@@ -348,8 +348,7 @@ def cross_validation(frame_df=None, hparams=None, write_logs=False, save_weights
     if gpus:
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(gpu, [
-                #TODO: Update memory limit
-                tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1228)])
+                tf.config.experimental.VirtualDeviceConfiguration(memory_limit=cfg['TRAIN']['MEMORY_LIMIT'])])
 
     n_classes = len(cfg['DATA']['CLASSES'])
 
