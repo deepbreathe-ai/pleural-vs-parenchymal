@@ -1,21 +1,23 @@
 PATHS:
-  FRAMES_TABLE: 'B:\\Datasets\\View\\view_classifier_binary\\internal_3\\frames.csv'
-  FRAMES_DIR: 'B:\\Datasets\\View\\view_classifier_binary\\internal_3\\frames'
-  CLIPS_TABLE: 'B:\\Datasets\\View\\view_classifier_binary\\internal_3\\clips_table.csv'
-  PARTITIONS_DIR: 'B:\\Datasets\\View\\view_classifier_binary\\internal_3\\partitions'
-  MASKED_CLIPS_DIR: 'B:\\Datasets\\View\\view_classifier_binary\\internal_3\\masked_clips'
-  TEST_FRAMES_TABLE: 'B:\Datasets\View\view_classifier_binary\internal_3\partitions\20220212-163128-seed1\test_set_frames.csv'
-  TEST_CLIPS_TABLE: 'B:\Datasets\View\view_classifier_binary\internal_3\partitions\20220212-163128-seed1\test_set_clips.csv'
-  FRAME_PREDICTIONS: 'results/predictions/frame_predictions20220212-201047val-seed1.csv'
+  FRAMES_TABLE: 'data/frames_table_val.csv'
+  FRAMES_DIR: 'data/frames/'
+  CLIPS_TABLE: 'data/clips_table_val.csv'
+  PARTITIONS_DIR: 'data/partitions/'
+  RAW_CLIPS_DIR: 'data/raw_clips/'
+  MASKED_CLIPS_DIR: 'data/masked_clips/'
+  DATABASE_QUERY: 'data/train_query.csv'
+  TEST_FRAMES_TABLE: 'data/internal_accuracy/frames.csv'
+  TEST_CLIPS_TABLE: 'data/internal_accuracy/clips_table.csv'
+  FRAME_PREDICTIONS: 'results/metrics/frames_20220627.json'
   EXPERIMENT_VISUALIZATIONS: 'img/experiments'
-  MODEL_TO_LOAD: 'results/models/model20220212-163128-efficientnetb0-seed1.h5'
+  MODEL_TO_LOAD: 'src/models/model20220212-163128-efficientnetb0-seed1_hackathon.h5'
   HEATMAPS: 'img/heatmaps'
   LOGS: 'results/logs/'
   IMAGES: 'results/figures/'
   MODEL_WEIGHTS: 'results/models/'
   BATCH_PREDS: 'results/predictions/'
   METRICS: './results/metrics/'
-  EXPERIMENTS: './results/experiments/'
+  EXPERIMENTS: 'results/experiments/'
   EXPERIMENT_IMG: './img/experiments/'
 
 DATA:
@@ -27,11 +29,11 @@ DATA:
 TRAIN:
   MODEL_DEF: 'efficientnetb0'
   N_CLASSES: 2
-  BATCH_SIZE: 256
+  BATCH_SIZE: 4
   EPOCHS: 15
   PATIENCE: 5
-  EXPERIMENT_TYPE: 'single_train'   # One of {'single_train', 'hparam_search'}
-  RANDOM_STATE: 1
+  EXPERIMENT_TYPE: 'cross_validation'   # One of {'single_train', 'hparam_search', 'cross_validation'}
+  N_FOLDS: 10
   DATA_AUG:
     ZOOM_RANGE: 0.2
     HORIZONTAL_FLIP: true
@@ -41,6 +43,7 @@ TRAIN:
     ROTATION_RANGE: 0.125   # Fraction of 2*pi
     BRIGHTNESS_RANGE: 0.2
     CONTRAST_RANGE: 0.1
+  MEMORY_LIMIT: 1228
 
 HPARAMS:
   MOBILENETV2:
@@ -95,10 +98,11 @@ HPARAMS:
     FROZEN_LAYERS: [ ]
 
 CLIP_PREDICTION:
-  CLASSIFICATION_THRESHOLD: 0.5
-  CLIP_PREDICTION_METHOD: 'contiguity_threshold'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshsold', 'longest_window'}
+  CLASSIFICATION_THRESHOLD: 0.7
+  CLIP_PREDICTION_METHOD: 'contiguity_threshold_with_smoothing'   # one of {'majority_vote', 'average', 'max_sliding_window', 'contiguity_threshold', 'contiguity_threshold_with_smoothing', 'longest_window'}
   WINDOW_SIZE: 20
-  CONTIGUITY_THRESHOLD: 25
+  CONTIGUITY_THRESHOLD: 7 # Number of consecutive pleural frames to predict pleural
+  SMOOTHING_WINDOW: 17 # Width of the moving average window used to smooth prediction probabilities
   WINDOW_CERTAINTY: 0.2
 
 HPARAM_SEARCH:

@@ -11,13 +11,14 @@ from tensorflow.keras import backend as k
 from tensorflow.keras.callbacks import Callback
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from skopt import gp_minimize
 from skopt.space import Real, Categorical, Integer
 
 from src.models.models import *
 from src.visualization.visualization import *
 from src.data.preprocessor import Preprocessor
+import gc
 
 cfg = yaml.full_load(open(os.getcwd() + "/config.yml", 'r'))
 CUR_DATETIME = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -203,7 +204,7 @@ def train_model(model_def, preprocessing_fn, train_df, val_df, test_df, hparams,
 
     # Train the model.
     history = model.fit(train_set, epochs=cfg['TRAIN']['EPOCHS'], validation_data=val_set, callbacks=callbacks,
-                        verbose=verbose, class_weight=class_weight)
+                         verbose=verbose, class_weight=class_weight)
 
     # Save the model's weights
     if save_weights:
@@ -335,6 +336,101 @@ def bayesian_hparam_optimization():
     plot_bayesian_hparam_opt(model_name, hparam_names, search_results, save_fig=True)
     return search_results
 
+def cross_validation(frame_df=None, hparams=None, write_logs=False, save_weights=False):
+    '''
+    Perform k-fold cross-validation. Results are saved in CSV format.
+    :param frame_df: A DataFrame consisting of the entire dataset of LUS frames
+    :param save_weights: Flag indicating whether to save model weights
+    :return DataFrame of metrics
+    '''
+
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        for gpu in gpus:
+            tf.config.experimental.set_virtual_device_configuration(gpu, [
+                tf.config.experimental.VirtualDeviceConfiguration(memory_limit=cfg['TRAIN']['MEMORY_LIMIT'])])
+
+    n_classes = len(cfg['DATA']['CLASSES'])
+
+    n_folds = cfg['TRAIN']['N_FOLDS']
+    if frame_df is None:
+        frame_df = pd.read_csv(cfg['PATHS']['FRAMES_TABLE'])[:5000]
+
+    metrics = ['accuracy', 'auc', 'f1score']
+    metrics += ['precision_' + c for c in cfg['DATA']['CLASSES']]
+    metrics += ['recall_' + c for c in cfg['DATA']['CLASSES']]
+    metrics_df = pd.DataFrame(np.zeros((n_folds + 2, len(metrics) + 1)), columns=['Fold'] + metrics)
+    metrics_df['Fold'] = list(range(n_folds)) + ['mean', 'std']
+
+    model_name = cfg['TRAIN']['MODEL_DEF'].lower()
+    model_def, preprocessing_fn = get_model(model_name)
+    hparams = cfg['HPARAMS'][model_name.upper()] if hparams is None else hparams
+
+    if write_logs:
+        log_dir = os.path.join(cfg['PATHS']['LOGS'], datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    else:
+        log_dir = None
+
+    all_pts = frame_df['Patient'].unique()
+    val_split = 1.0 / n_folds
+    pt_k_fold = KFold(n_splits=n_folds, shuffle=True)
+
+    cur_date = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    partition_path = os.path.join(cfg['PATHS']['PARTITIONS_DIR'], 'kfold' + cur_date)
+    if not os.path.exists(partition_path):
+        os.makedirs(partition_path)
+
+    # Train a model n_folds times with different folds
+    cur_fold = 0
+    row_idx = 0
+    for train_index, test_index in pt_k_fold.split(all_pts):
+        print('Fitting model for fold ' + str(cur_fold))
+
+        # Partition into training, validation and test sets for this fold
+        trainval_pts = all_pts[train_index]
+        train_pts, val_pts = train_test_split(trainval_pts, test_size=val_split)
+        test_pts = all_pts[test_index]
+        train_df = frame_df[frame_df['Patient'].isin(train_pts)]
+        val_df = frame_df[frame_df['Patient'].isin(val_pts)]
+        test_df = frame_df[frame_df['Patient'].isin(test_pts)]
+        train_df.to_csv(os.path.join(partition_path, 'fold_' + str(cur_fold) + '_train_set.csv'))
+        val_df.to_csv(os.path.join(partition_path, 'fold_' + str(cur_fold) + '_val_set.csv'))
+        test_df.to_csv(os.path.join(partition_path, 'fold_' + str(cur_fold) + '_test_set.csv'))
+
+        # Train the model and evaluate performance on test set
+        log_dir_fold = log_dir
+        if write_logs:
+            log_dir_fold = log_dir + 'fold' + str(cur_fold)
+        model, test_metrics, _ = train_model(model_def, preprocessing_fn, train_df, val_df, test_df, hparams,
+                                             save_weights=save_weights, log_dir=log_dir_fold)
+
+        metrics_df['accuracy'] = metrics_df['accuracy'].astype(object)
+
+        for metric in test_metrics:
+            if metric in metrics_df.columns:
+                metrics_df[metric][row_idx] = test_metrics[metric]
+        row_idx += 1
+        cur_fold += 1
+        gc.collect()
+        tf.keras.backend.clear_session()
+        del model
+
+    # Record mean and standard deviation of test set results
+    for metric in metrics:
+        metrics_df[metric][n_folds] = metrics_df[metric][0:-2].mean()
+
+        if metric == 'f1score':
+            f1_reshape = np.vstack(metrics_df[metric][0:-2])
+            metrics_df[metric][n_folds + 1] = f1_reshape.std(axis=0, ddof=1)
+
+        else:
+            metrics_df[metric][n_folds + 1] = metrics_df[metric][0:-2].std()
+
+    # Save results
+    file_path = cfg['PATHS']['EXPERIMENTS'] + 'cross_val_' + model_name + \
+                datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.csv'
+    metrics_df.to_csv(file_path, columns=metrics_df.columns, index_label=False, index=False)
+    return metrics_df
 
 def train_experiment(experiment='single_train', save_weights=False, write_logs=False):
     '''
@@ -349,6 +445,8 @@ def train_experiment(experiment='single_train', save_weights=False, write_logs=F
         train_single(save_weights=save_weights, write_logs=write_logs)
     elif experiment == 'hparam_search':
         bayesian_hparam_optimization()
+    elif experiment == 'cross_validation':
+        cross_validation(save_weights=save_weights, write_logs=write_logs)
     else:
         raise Exception("Invalid entry in TRAIN > EXPERIMENT_TYPE field of config.yml.")
     return
