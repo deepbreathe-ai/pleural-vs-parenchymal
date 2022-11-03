@@ -1,8 +1,8 @@
 # Pleural vs Parenchymal Lung Ultrasound Classifier
-![Deep Breathe Logo](img/readme/deep-breathe-logo.jpg "Deep Breath AI")   
+![Deep Breathe Logo](img/readme/deep-breathe-logo.jpg "Deep Breath")   
 
 We at [Deep Breathe](https://www.deepbreathe.ai/) sought to train a deep learning model for the task
-of automating the distinction between parenchymal and pleural lung ultrasound videos.
+of automating the distinction between parenchymal and pleural view lung ultrasound videos.
 
 This repository contains work relating to development and validation of a pleural vs parenchymal
 ultrasound view image classifier that was used for the creation of the paper
@@ -96,7 +96,7 @@ With a pre-processed clip dataset, you can evaluate model performance using k-fo
 6. Run [_train.py_](/src/train.py).
 7. View all logs and trained weights in the [_results_](/results) directory. The partitions from each fold can be found in the [_partitions_](/src/results/data/partitions) folder.
 
-### Hyper Parameter Optimization 
+### Hyperparameter Optimization 
 
 With a pre-processed clip dataset, you can perform a hyperparameter search to assist with hyperparameter optimization.
 1. Assemble in a pre-processed clip dataset (see [**_Building a Dataset_**](#building-a-dataset)) 
@@ -106,7 +106,7 @@ With a pre-processed clip dataset, you can perform a hyperparameter search to as
 4. Set the hyperparameter search fields in the train section of [_config.yml_](config.yml).
 5. Set the associated hyperparameter search configuration values based on the chosen model definition.
 6. Run [_train.py_](/src/train.py).
-7. View all logs in the [_logs_](/results/logs) folder and view bayesian hyperparameter search results in the [_experiments_](/results/experiments) folder.
+7. View all logs in the [_logs_](/results/logs) folder and view Bayesian hyperparameter search results in the [_experiments_](/results/experiments) folder.
 
 ### Predictions
 
@@ -114,9 +114,10 @@ With a trained model, you can compute frame predictions and clip predictions usi
 1. Set the `MODEL_TO_LOAD` field in [_config.yml_](config.yml) to point to a trained model (in `.h5` format).
 2. Set the `FRAME_TABLE` and `CLIPS_TABLE` fields to the dataset of interest. Set the `FRAMES` field to point to the dataset's directory of LUS frames.
 3. Set the `CLIP_PREDICTION` > `CLIP_PREDICTION_METHOD` field to determine which algorithm is used to compute clip-wise predictions, given the clip's set of frame predictions produced by the model. Below is a brief description of each algorithm available.
-   - **"contiguous"**: If the number of contiguous frames for which the frame's predicted B-line probability meets or exceeds the classification threshold is at least the contiguity threshold, classify the clip as "B-lines".
-    - **"average"**: Compute the average prediction probabilities across the entire clip. If the B-line average probability meets or exceeds the classification threshold, classify the clip as "B-lines".
-    - **"sliding_window"**: Take the clip's B-line probability as the greatest average B-line probability present in any contiguous set of frames as large as the sliding window.
+   - **"contiguity_threshold"**: If the number of contiguous frames for which the frame's predicted pleural view probability meets or exceeds the classification threshold is at least the contiguity threshold, classify the clip as "pleural".
+   - **"contiguity_threshold_with_smoothing"**: If the number of contiguous frames for which the frame's smoothed predicted pleural view probability meets or exceeds the classification threshold is at least the contiguity threshold, classify the clip as "pleural".
+   - **"average"**: Compute the average prediction probabilities across the entire clip. If the pleural average probability meets or exceeds the classification threshold, classify the clip as "pleural".
+   - **"sliding_window"**: Take the clip's pleural probability as the greatest average pleural probability present in any contiguous set of frames as large as the sliding window.
 4. Execute [predict.py](/src/predict.py).
 5. Access the frame and corresponding clip predictions as CSV files, located in [results/predictions](/results/predictions/).
 
@@ -222,7 +223,7 @@ Each model type has a list of configurable hyperparameters defined here.
 
 This section contains values specific to predicting clips using a set of frame predictions.
 - **CLASSIFICATION_THRESHOLD**: Threshold for pleural classification.
-- **CLIP_PREDICTION_METHOD**: Clip prediction logic. See  [config.yml](config.yml) for list of options.
+- **CLIP_PREDICTION_METHOD**: Clip prediction logic. See [config.yml](config.yml) for list of options.
 - **WINDOW_SIZE**: Window size for sliding window clip predictions.
 - **CONTIGUITY_THRESHOLD**: Threshold for contiguity threshold method.
 - **SMOOTHING_WINDOW**: Smoothing window for smoothed contiguity threshold method.
@@ -299,7 +300,7 @@ Deep Breathe
 robert.arntfield@gmail.com
 
 **Bennett VanBerlo**  
-Machine Learning Developer 
+Machine Learning Developer   
 Deep Breathe  
 bennettjlvb@gmail.com
 
