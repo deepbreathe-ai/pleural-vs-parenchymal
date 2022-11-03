@@ -1,22 +1,23 @@
 # Pleural vs Parenchymal Lung Ultrasound Classifier
-![Deep Breathe Logo](img/readme/deep-breathe-logo.jpg "Deep Breath AI")   
+![Deep Breathe Logo](img/readme/deep-breathe-logo.jpg "Deep Breath")   
 
-[comment]: <> (TODO: Add project description.)
 We at [Deep Breathe](https://www.deepbreathe.ai/) sought to train a deep learning model for the task
-of _insert ml project task_.
+of automating the distinction between parenchymal and pleural view lung ultrasound videos.
 
-[comment]: <> (TODO: Add project description and paper link if applicable.)
-This repository contains work relating to development and validation of
-_insert the goal of the project and link to the associated paper when applicable_
+This repository contains work relating to development and validation of a pleural vs parenchymal
+ultrasound view image classifier that was used for the creation of the paper
+[Enhancing Annotation Efficiency with Machine Learning: Automated Partitioning of a Lung Ultrasound Dataset by View](https://www.mdpi.com/1856464).
 
 [comment]: <> (TODO: Update table of contents to use corrent links and section titles.)
 ## Table of Contents
 1. [**_Getting Started_**](#getting-started)
 2. [**_Building a Dataset_**](#building-a-dataset)
 3. [**_Use Cases_**](#use-cases)  
-   i)[**_Use Case 1_**](#use-case-1)  
-   ii) [**_Use Case 2_**](#use-case-2)  
-   iii) [**_Use Case 3_**](#use-case-3)
+   i)[**_Train Single Experiment_**](#train-single-experiment)  
+   ii) [**_K-Fold Cross Validation_**](#k-fold-cross-validation)  
+   iii) [**_Hyper Parameter Optimization_**](#hyper-parameter-optimization)  
+   iv) [**_Predictions_**](#predictions)  
+   v) [**_Grad-CAM for Individual Frame Predictions_**](#grad-cam-for-individual-frame-predictions)  
 4. [**_Project Configuration_**](#project-configuration)
 5. [**_Project Structure_**](#project-structure)
 6. [**_Contacts_**](#contacts)
@@ -31,15 +32,13 @@ _insert the goal of the project and link to the associated paper when applicable
    ```
    $ pip install -r requirements.txt
    ```
-[comment]: <> (TODO: Update the data type used for the project.)
-3. Obtain _some data type_ data and preprocess it accordingly. See
+3. Obtain lung ultrasound data and preprocess it accordingly. See
    [building a dataset](#building-a-dataset) for more details.
    
-[comment]: <> (TODO: Update any specific steps, configuration, or directories.)
 4. Update the _TRAIN >> MODEL_DEF_ field of [_config.yml_](config.yml) with
    the appropriate string representing the model type you wish to
    train. To train a model, ensure the _TRAIN >>
-   EXPERIMENT_TYPE_ field is set to _'train_single'_.
+   EXPERIMENT_TYPE_ field is set to _'single_train'_.
 5. Execute [_train.py_](src/train.py) to train your chosen model on your
    preprocessed data. The trained model will be serialized within
    _results/models/_, and its filename will resemble the following
@@ -48,30 +47,88 @@ _insert the goal of the project and link to the associated paper when applicable
 6. Navigate to _results/logs/_ to see the tensorboard log files. The folder name will
    be _{yyyymmdd-hhmmss}_.  These logs can be used to create a [tensorboard](https://www.tensorflow.org/tensorboard)
    visualization of the training results.
-   
+
 ## Building a Dataset
 
-[comment]: <> (TODO: Add steps to create a data set for model trinaing.)
-[comment]: <> (TODO: Include links to scripts used for generating datasets.)
+The raw clips were scrubbed of all on-screen information
+(e.g. vendor logos, battery indicators, index mark, depth markers)
+extraneous to the ultrasound beam itself. This was done using a dedicated
+deep learning masking software for ultrasound (AutoMask, WaveBase Inc.,
+Waterloo, Canada). Following this, all ultrasound clips were deconstructed into
+their constituent frames, and a frame table was generated linking each frame to
+their ground truth, associated clip, and patient.
+
+The following csv headers can be used to create a clips table csv file to train a model:  
+
+_| filename | patient_id  | view  | class |_  
+
+Where _filename_ is the name of the labeled clip file, _patient_id_ is a unique patient identifier, 
+_view_ is a string label for the clip, and _class_ is the label as a class integer.  
+
+Using this clips table csv, a set of lung ultrasound clips in mp4 format, and the 
+[_build-dataset.py_](/src/data/build-dataset.py) script, a frames table can be generated 
+that will be used to train a model.
    
 ## Use Cases
 
-[comment]: <> (TODO: Add project use cases and steps to execute.)
+### Train a Model
 
-### Use Case 1
+With a pre-processed clip dataset, you can train a frame classification model of a chosen model definition.
+1. Assemble in a pre-processed clip dataset (see [**_Building a Dataset_**](#building-a-dataset)) and set the appropriate data paths in [_config.yml_](config.yml). 
+2. Mask the images of extraneous information outside the ultrasound beam. In our group, this was done with proprietary software mentioned above in 'Building a Dataset'
+3. Generate a frame dataset from the masked clips using [_build-dataset.py_](/src/data/build-dataset.py).
+4. Set the desired data and train configuration fields in [_config.yml_](config.yml) including setting a model type using the `MODEL_DEF` parameter and setting the `EXPERIMENT_TYPE` to _single_train_.
+5. Set the associated hyperparameter values based on the chosen model definition.
+6. Run [_train.py_](/src/train.py).
+7. View all logs and trained weights in the [_results_](/results) directory.
 
-With a pre-processed dataset, you can _insert use case name_.
-1. 
+Note: We found that the _cutoffvgg16_ model definition had the best performance on our internal data.
 
-### Use Case 2
+### K-Fold Cross Validation
 
-With a pre-processed dataset, you can _insert use case name_.
-1. 
+With a pre-processed clip dataset, you can evaluate model performance using k-fold cross-validation.
+1. Assemble in a pre-processed clip dataset (see [**_Building a Dataset_**](#building-a-dataset)) 
+   and set the appropriate data paths in [_config.yml_](config.yml).
+2. Generate a frame from the masked clips using [_build-dataset.py_](/src/data/build-dataset.py).
+3. Set the desired data and train configuration fields in [_config.yml_](config.yml) including setting a model type using the `MODEL_DEF` parameter and setting the `EXPERIMENT_TYPE` to _cross_validation_.
+4. Set the number of folds in the train section of [_config.yml_](config.yml).
+5. Set the associated hyperparameter values based on the chosen model definition.
+6. Run [_train.py_](/src/train.py).
+7. View all logs and trained weights in the [_results_](/results) directory. The partitions from each fold can be found in the [_partitions_](/src/results/data/partitions) folder.
 
-### Use Case 3
+### Hyperparameter Optimization 
 
-With a pre-processed dataset, you can _insert use case name_.
-1. 
+With a pre-processed clip dataset, you can perform a hyperparameter search to assist with hyperparameter optimization.
+1. Assemble in a pre-processed clip dataset (see [**_Building a Dataset_**](#building-a-dataset)) 
+   and set the appropriate data paths in [_config.yml_](config.yml).
+2. Generate a frame dataset from the masked clips using [_build-dataset.py_](/src/data/build-dataset.py).
+3. Set the desired data and train configuration field in [_config.yml_](config.yml) including setting a model type using the `MODEL_DEF` parameter and setting the `EXPERIMENT_TYPE` to _hparam_search_.
+4. Set the hyperparameter search fields in the train section of [_config.yml_](config.yml).
+5. Set the associated hyperparameter search configuration values based on the chosen model definition.
+6. Run [_train.py_](/src/train.py).
+7. View all logs in the [_logs_](/results/logs) folder and view Bayesian hyperparameter search results in the [_experiments_](/results/experiments) folder.
+
+### Predictions
+
+With a trained model, you can compute frame predictions and clip predictions using the following steps:
+1. Set the `MODEL_TO_LOAD` field in [_config.yml_](config.yml) to point to a trained model (in `.h5` format).
+2. Set the `FRAME_TABLE` and `CLIPS_TABLE` fields to the dataset of interest. Set the `FRAMES` field to point to the dataset's directory of LUS frames.
+3. Set the `CLIP_PREDICTION` > `CLIP_PREDICTION_METHOD` field to determine which algorithm is used to compute clip-wise predictions, given the clip's set of frame predictions produced by the model. Below is a brief description of each algorithm available.
+   - **"contiguity_threshold"**: If the number of contiguous frames for which the frame's predicted pleural view probability meets or exceeds the classification threshold is at least the contiguity threshold, classify the clip as "pleural".
+   - **"contiguity_threshold_with_smoothing"**: If the number of contiguous frames for which the frame's smoothed predicted pleural view probability meets or exceeds the classification threshold is at least the contiguity threshold, classify the clip as "pleural".
+   - **"average"**: Compute the average prediction probabilities across the entire clip. If the pleural average probability meets or exceeds the classification threshold, classify the clip as "pleural".
+   - **"sliding_window"**: Take the clip's pleural probability as the greatest average pleural probability present in any contiguous set of frames as large as the sliding window.
+4. Execute [predict.py](/src/predict.py).
+5. Access the frame and corresponding clip predictions as CSV files, located in [results/predictions](/results/predictions/).
+
+### Grad-CAM for Individual Frame Predictions
+
+With a trained model and a collection of frame data, you can apply a Grad-CAM visualization to individual frames.
+1. Set the `MODEL_TO_LOAD` field in [_config.yml_](config.yml) to point to a trained model (in `.h5` format).
+2. Set the `FRAME_TABLE` field and set the `FRAMES` path field to point to a directory of LUS frames .
+3. Run [_gradcam.py_](/src/explainability/gradcam.py).
+4. Select the frame that you want to apply Grad-CAM to.
+5. View Grad-CAM results in the [_img/heatmaps_](/img/heatmaps) folder.
 
 ## Project Configuration
 This project contains several configurable variables that are defined in
@@ -84,26 +141,32 @@ of the model development pipeline. Many fields need not be modified by
 the typical user, but others may be modified to suit the user's specific
 goals. A summary of the major configurable elements in this file is
 below.
-<details closed> 
-
-[comment]: <> (TODO: Update the configuration fields to match config.yml and add any nessesary descriptions.)
-[comment]: <> (Note: The configuration fields match the configuration example values defined in config.yml.)
-[comment]: <> (Note: The following list of configuration values is simply an exaple set of commonly used parameters.)
-[comment]: <> (Note: Be sure to update this readme section as you update the parameters in config.yml.)
+<details closed>
 
 <summary>Paths</summary>
 
-This section of the config contains all path definitions for reading data and writing outputs.
-- **DATA_TABLE**: Data table in csv format.
+This section of the config contains all path definitions for reading data and writing outputs. Any not defined are
+pointing to directories rather than files.
+- **FRAMES_TABLE**: Path to frame csv.
+- **FRAMES_DIR**: Path to clip csv.
+- **CLIPS_TABLE**
+- **PARTITIONS_DIR**
+- **RAW_CLIPS_DIR**
+- **MASKED_CLIPS_DIR**
+- **DATABASE_QUERY**
+- **TEST_FRAMES_TABLE**: Path to test frame csv.
+- **TEST_CLIPS_TABLE**: Path to test clip csv.
+- **FRAME_PREDICTIONS**: Path to pre-generated frame predictions.
+- **EXPERIMENT_VISUALIZATIONS**
+- **MODEL_TO_LOAD**: Trained model in h5 file format.
 - **HEATMAPS**
 - **LOGS**
 - **IMAGES**
 - **MODEL_WEIGHTS**
-- **MODEL_TO_LOAD**: Trained model in h5 file format.
-- **CLASS_NAME_MAP**: Output class indices in pkl format.
 - **BATCH_PREDS**
 - **METRICS**
 - **EXPERIMENTS**
+- **EXPERIMENT_IMG**
 </details>
 
 <details closed> 
@@ -123,7 +186,7 @@ This section of the config contains all path definitions for reading data and wr
 - **BATCH_SIZE**: Batch size.
 - **EPOCHS**: Number of epocs.
 - **PATIENCE**: Number of epochs with no improvement after which training will be stopped.
-- **MIXED_PRECISION** Toggle mixed precision training. Necessary for training with Tensor Cores.
+- **EXPERIMENT_TYPE**: Toggle mixed precision training. Necessary for training with Tensor Cores.
 - **N_FOLDS**: Cross-validation folds.
 - **DATA_AUG**: Data augmentation parameters.
   - **ZOOM_RANGE**
@@ -133,27 +196,38 @@ This section of the config contains all path definitions for reading data and wr
   - **SHEAR_RANGE**
   - **ROTATION_RANGE**
   - **BRIGHTNESS_RANGE**
-- **HPARAM_SEARCH**: 
-  - **N_EVALS**: Number of iteration in the bayesian hyperparamter search.
-  - **HPARAM_OBJECTIVE**: String identifier for the metric to be optimized by bayesian hyperparamter search.
+  - **CONTRAST_RANGE**
+- **MEMORY_LIMIT**:Virtual device memory limit
 </details>
 
 <details closed>
 <summary>Hyperparameters</summary>
 
 Each model type has a list of configurable hyperparameters defined here.
-- **MODEL1**
+- **MODELNAME1**
   - **LR**
   - **DROPOUT**
   - **L2_LAMBDA**
-  - **NODES_DENSE0**
+  - **NODES_FC0**
   - **FROZEN_LAYERS**
-- **MODEL2**
+- **MODELNAME2**
   - **LR**
   - **DROPOUT**
   - **L2_LAMBDA**
-  - **NODES_DENSE0**
-  - **FROZEN_LAYERS**
+  - **NODES_FC0**
+  - **FROZEN_LAYERS**    
+</details>
+
+<details closed> 
+<summary>Clip Prediction</summary>
+
+This section contains values specific to predicting clips using a set of frame predictions.
+- **CLASSIFICATION_THRESHOLD**: Threshold for pleural classification.
+- **CLIP_PREDICTION_METHOD**: Clip prediction logic. See [config.yml](config.yml) for list of options.
+- **WINDOW_SIZE**: Window size for sliding window clip predictions.
+- **CONTIGUITY_THRESHOLD**: Threshold for contiguity threshold method.
+- **SMOOTHING_WINDOW**: Smoothing window for smoothed contiguity threshold method.
+- **WINDOW_CERTAINTY**: Certainly value for longest window method.
 </details>
 
 <details closed> 
@@ -165,18 +239,13 @@ The ranges are defined here in the config file. Each hyperparameter has a name, 
 The type dictates how samples are drawn from the range.
 
 For more information on using bayesian hyperparameters, visit the [skopt documentation](https://scikit-optimize.github.io/stable/modules/generated/skopt.gp_minimize.html).
-- **MODEL1**
-  - **LR**
+- **OBJECTIVE** Hyperparameter search maximization/minimization metric.
+- **N_TRIALS** Number of trials in search.
+- **MODELNAME**
+  - **HYPERPARAMETER_NAME1**
     - **TYPE**
     - **RANGE**
-  - **DROPOUT**
-    - **TYPE**
-    - **RANGE**
-- **MODEL2**
-  - **LR**
-    - **TYPE**
-    - **RANGE**
-  - **DROPOUT**
+  - **HYPERPARAMETER_NAME2**
     - **TYPE**
     - **RANGE**
 
@@ -189,8 +258,6 @@ empty directories. Disregard any _.\__init\__.py_ files, as they are
 empty files that enable Python to recognize certain directories as
 packages.
 
-[comment]: <> (TODO: Update the project structure to match your project including descriptions.)
-
 ```
 ├── img
 |   ├── experiments                  <- Visualizations for experiments
@@ -201,24 +268,24 @@ packages.
 |   |   └── partition                <- K-fold cross-validation fold partitions
 |   ├── experiments                  <- Experiment results
 |   ├── figures                      <- Generated figures
+|   ├── metrics                      <- Metrics for frame and clip inference
 |   ├── models                       <- Trained model output
 |   ├── predictions                  <- Prediction output
 │   └── logs                         <- TensorBoard logs
 ├── src
 │   ├── data
-|   |   └── database_pull.py         <- Script for pulling clip mp4 files from the cloud - step 2 (specific to our setup)
+|   |   ├── build-dataset.py         <- Builds a table of frame examples using a table of clip metadata
+|   |   ├── preprocessor.py          <- For preprocessing images for training and inference
+|   |   ├── database_pull.py         <- Script for pulling clip mp4 files from the cloud - step 2 (specific to our setup)
+|   |   └── query_to_df.py           <- Script for pulling clip metadata from the cloud - step 1 (specific to our setup)
 │   ├── explainability
-|   |   └── example_explain.py       <- Script containing some explainability method
+|   |   └── gradcam.py               <- Script containing some explainability method
 │   ├── models
 |   |   └── models.py                <- Script containing all model definitions
 │   ├── visualization
-|   |   └── visualize.py             <- Script for visualization production
-│   ├── readme_example_folder
-|   |   ├── example1.py              <- Script for...
-|   |   └── example2.py              <- Script for...
+|   |   └── visualization.py         <- Script for visualization production
 |   ├── predict.py                   <- Script for prediction on raw data using trained models
 |   └── train.py                     <- Script for training experiments
-|
 ├── .gitignore                       <- Files to be be ignored by git.
 ├── config.yml                       <- Values of several constants used throughout project
 ├── README.md                        <- Project description
@@ -227,13 +294,18 @@ packages.
 
 ## Contacts
 
-**Contact Name**  
-Title
+**Robert Arntfield**  
+Project Lead  
 Deep Breathe  
-Email
+robert.arntfield@gmail.com
 
-**Contact Name**  
-Title
+**Bennett VanBerlo**  
+Machine Learning Developer   
 Deep Breathe  
-Email
+bennettjlvb@gmail.com
+
+**Blake VanBerlo**  
+Deep Learning Project Lead   
+Deep Breathe  
+bvanberlo@uwaterloo.ca
 
